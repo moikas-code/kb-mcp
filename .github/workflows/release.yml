@@ -54,12 +54,10 @@ jobs:
 
       - name: Build CLI
         run: |
-          # Build standalone CLI
-          npx tsc src/cli/standalone-cli.ts --outDir dist --module ESNext --target ES2022 --moduleResolution node --esModuleInterop --allowSyntheticDefaultImports --skipLibCheck --resolveJsonModule
-          # Create cli directory and move file to correct location
-          mkdir -p dist/cli
-          mv dist/standalone-cli.js dist/cli/standalone-cli.js
-          chmod +x dist/cli/standalone-cli.js
+          # Build the entire project
+          npm run build
+          # Make CLI executable
+          chmod +x dist/cli/index.js
 
       - name: Run tests
         run: npm test || echo "Tests not yet implemented"
@@ -100,7 +98,7 @@ jobs:
         with:
           name: cli-build-${{ steps.version.outputs.version }}
           path: |
-            dist/cli/standalone-cli.js
+            dist/cli/index.js
             package.json
             README.md
             LICENSE
@@ -161,7 +159,7 @@ jobs:
           cp package.json build/
           
           # Create executable
-          pkg build/cli/standalone-cli.js --target node18-${{ matrix.platform }}-${{ matrix.arch }} --output kb-mcp-${{ matrix.platform }}-${{ matrix.arch }}${{ matrix.ext }} --compress GZip
+          pkg build/cli/index.js --target node18-${{ matrix.platform }}-${{ matrix.arch }} --output kb-mcp-${{ matrix.platform }}-${{ matrix.arch }}${{ matrix.ext }} --compress GZip
 
       - name: Calculate checksums
         shell: bash
@@ -210,7 +208,7 @@ jobs:
         run: |
           # Ensure dist directory exists with CLI
           mkdir -p dist/cli
-          cp dist/cli/standalone-cli.js dist/cli/ || echo "CLI already in place"
+          cp dist/cli/index.js dist/cli/ || echo "CLI already in place"
           
           # Create package tarball
           npm pack
@@ -355,7 +353,7 @@ jobs:
 
       - name: Build for NPM
         run: |
-          npx tsc src/cli/basic-cli.ts --outDir dist --module ESNext --target ES2022 --moduleResolution bundler --esModuleInterop --allowSyntheticDefaultImports --strict --skipLibCheck
+          npm run build
 
       - name: Publish to NPM
         run: npm publish --access public
