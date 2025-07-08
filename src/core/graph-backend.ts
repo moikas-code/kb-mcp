@@ -20,7 +20,7 @@ export class GraphBackend implements StorageBackend {
 
     const memoryConfig: UnifiedMemoryConfig = {
       host: config.graph?.connection.host || 'localhost',
-      port: config.graph?.connection.port || connection.connection?.port || 3000 || 6380,
+      port: config.graph?.connection.port || 6380,
       password: config.graph?.connection.password,
       graph_name: config.graph?.connection.database || 'kb_graph',
       max_connections: 10,
@@ -109,7 +109,7 @@ export class GraphBackend implements StorageBackend {
             temporal_queries: this.config.graph?.enable_temporal_queries ?? false,
             connection: {
               host: this.config.graph?.connection.host,
-              port: this.config.graph?.connection.port || connection.connection?.port || 3000,
+              port: this.config.graph?.connection.port || 6380,
               database: this.config.graph?.connection.database
             }
           }

@@ -4,8 +4,8 @@
  */
 
 import { EventEmitter } from 'events';
-import { v4 as uuidv4 } from 'uuid';
-import { IUnifiedMemory, IGraphMemory, IVectorMemory, ITemporalMemory, IWorkingMemory, MemoryEvents } from './interfaces.js';
+// import { v4 as uuidv4 } from 'uuid';
+import { IUnifiedMemory, IGraphMemory, IVectorMemory, ITemporalMemory, IWorkingMemory } from './interfaces.js';
 import { GraphMemory } from './graph-memory.js';
 import { VectorMemory } from './vector-memory.js';
 import { TemporalMemory } from './temporal-memory.js';
@@ -17,7 +17,7 @@ import {
   GraphQueryResult, InsightNode, FactNode
 } from './types.js';
 import { Result } from '../types/index.js';
-import { GRAPH_SCHEMA } from './schema.js';
+// import { GRAPH_SCHEMA } from './schema.js';
 import { toKBError } from '../types/error-utils.js';
 
 export interface UnifiedMemoryConfig extends FalkorDBConfig {
@@ -37,7 +37,7 @@ export class UnifiedMemory extends EventEmitter implements IUnifiedMemory {
   
   private connection: FalkorDBConnection;
   private config: UnifiedMemoryConfig;
-  private consolidationTimer?: NodeJS.Timer;
+  private consolidationTimer?: NodeJS.Timeout;
   private memoryManager: MemoryManager;
   
   constructor(config: UnifiedMemoryConfig) {
@@ -608,7 +608,7 @@ export class UnifiedMemory extends EventEmitter implements IUnifiedMemory {
       scoreB += Math.min(b.access_count / 100, 1) * 0.1;
       
       // Type relevance
-      const relevantTypes = [NodeType.FACT, NodeType.INSIGHT, NodeType.ANSWER];
+      const relevantTypes = [NodeType.FACT, NodeType.INSIGHT, NodeType.MEMORY];
       if (relevantTypes.includes(a.type as NodeType)) scoreA += 0.2;
       if (relevantTypes.includes(b.type as NodeType)) scoreB += 0.2;
       
@@ -641,7 +641,7 @@ export class UnifiedMemory extends EventEmitter implements IUnifiedMemory {
             fact.id,
             similarFact.id,
             EdgeType.CONTRADICTS,
-            { detected_at: new Date().toISOString() }
+            { metadata: { detected_at: new Date().toISOString() } }
           );
         }
       }
@@ -757,13 +757,13 @@ export class UnifiedMemory extends EventEmitter implements IUnifiedMemory {
       await this.cleanupWorkingMemory();
       
       // Clear old temporal memories (older than 7 days)
-      const cutoffDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-      await this.temporal.clearBefore(cutoffDate);
+      // const cutoffDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+      // await this.temporal.clearBefore(cutoffDate);
       
-      // Clear vector index cache
-      if (this.vector.clearCache) {
-        await this.vector.clearCache();
-      }
+      // Clear vector index cache - method not yet implemented
+      // if (this.vector.clearCache) {
+      //   await this.vector.clearCache();
+      // }
       
       // Clear low-importance nodes (importance < 0.1)
       await this.connection.query(`

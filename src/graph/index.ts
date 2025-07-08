@@ -26,14 +26,14 @@ export { UnifiedMemory, type UnifiedMemoryConfig } from './unified-memory.js';
 
 // Factory function for easy initialization
 export async function createMemorySystem(config: FalkorDBConfig) {
-  const unifiedMemory = new UnifiedMemory(config);
-  const result = await unifiedMemory.initialize();
+  const memory = new UnifiedMemory(config);
+  const result = await memory.initialize();
   
   if (!result.success) {
     throw new Error(`Failed to initialize memory system: ${result.error}`);
   }
   
-  return unifiedMemory;
+  return memory;
 }
 
 // Default configuration
