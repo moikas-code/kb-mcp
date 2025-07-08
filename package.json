@@ -1,6 +1,6 @@
 {
   "name": "@moikas/kb-mcp",
-  "version": "1.2.1",
+  "version": "2.0.0",
   "description": "Knowledge base management system with MCP server and CLI - Security frameworks ready for enterprise deployment",
   "repository": {
     "type": "git",
@@ -36,7 +36,7 @@
     "type-check": "tsc --noEmit",
     "audit": "npm audit --production",
     "prepublishOnly": "npm run build",
-    "version": "npx tsc src/cli/standalone-cli.ts --outDir dist/cli --module ESNext --target ES2022 --moduleResolution node --esModuleInterop --allowSyntheticDefaultImports --skipLibCheck --resolveJsonModule && chmod +x dist/cli/standalone-cli.js",
+    "version": "npm run build && chmod +x dist/cli/index.js",
     "postversion": "git push && git push --tags",
     "release": "npm version patch && npm publish",
     "release:minor": "npm version minor && npm publish",
