@@ -161,7 +161,7 @@ jobs:
           
           # Create executable
           pkg build/cli/standalone-cli.js \
-            --target node20-${{ matrix.platform }}-${{ matrix.arch }} \
+            --target node18-${{ matrix.platform }}-${{ matrix.arch }} \
             --output kb-mcp-${{ matrix.platform }}-${{ matrix.arch }}${{ matrix.ext }} \
             --compress GZip
 
