@@ -153,6 +153,7 @@ jobs:
         run: npm install -g pkg
 
       - name: Create executable
+        shell: bash
         run: |
           # Create package for compilation
           mkdir -p build
@@ -160,15 +161,14 @@ jobs:
           cp package.json build/
           
           # Create executable
-          pkg build/cli/standalone-cli.js \
-            --target node18-${{ matrix.platform }}-${{ matrix.arch }} \
-            --output kb-mcp-${{ matrix.platform }}-${{ matrix.arch }}${{ matrix.ext }} \
-            --compress GZip
+          pkg build/cli/standalone-cli.js --target node18-${{ matrix.platform }}-${{ matrix.arch }} --output kb-mcp-${{ matrix.platform }}-${{ matrix.arch }}${{ matrix.ext }} --compress GZip
 
       - name: Calculate checksums
+        shell: bash
         run: |
           if [[ "${{ matrix.platform }}" == "win32" ]]; then
-            certutil -hashfile kb-mcp-${{ matrix.platform }}-${{ matrix.arch }}${{ matrix.ext }} SHA256 > kb-mcp-${{ matrix.platform }}-${{ matrix.arch }}.sha256
+            # Use PowerShell command for Windows but call it from bash
+            powershell -Command "certutil -hashfile kb-mcp-${{ matrix.platform }}-${{ matrix.arch }}${{ matrix.ext }} SHA256 | Out-File -FilePath kb-mcp-${{ matrix.platform }}-${{ matrix.arch }}.sha256 -Encoding UTF8"
           else
             shasum -a 256 kb-mcp-${{ matrix.platform }}-${{ matrix.arch }}${{ matrix.ext }} > kb-mcp-${{ matrix.platform }}-${{ matrix.arch }}.sha256
           fi
