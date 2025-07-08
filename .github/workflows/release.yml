@@ -54,8 +54,12 @@ jobs:
 
       - name: Build CLI
         run: |
-          npx tsc src/cli/basic-cli.ts --outDir dist --module ESNext --target ES2022 --moduleResolution bundler --esModuleInterop --allowSyntheticDefaultImports --strict --skipLibCheck
-          chmod +x dist/cli/basic-cli.js
+          # Build standalone CLI
+          npx tsc src/cli/standalone-cli.ts --outDir dist --module ESNext --target ES2022 --moduleResolution node --esModuleInterop --allowSyntheticDefaultImports --skipLibCheck --resolveJsonModule
+          # Create cli directory and move file to correct location
+          mkdir -p dist/cli
+          mv dist/standalone-cli.js dist/cli/standalone-cli.js
+          chmod +x dist/cli/standalone-cli.js
 
       - name: Run tests
         run: npm test || echo "Tests not yet implemented"
@@ -96,7 +100,7 @@ jobs:
         with:
           name: cli-build-${{ steps.version.outputs.version }}
           path: |
-            dist/cli/basic-cli.js
+            dist/cli/standalone-cli.js
             package.json
             README.md
             LICENSE
@@ -156,7 +160,7 @@ jobs:
           cp package.json build/
           
           # Create executable
-          pkg build/cli/basic-cli.js \
+          pkg build/cli/standalone-cli.js \
             --target node20-${{ matrix.platform }}-${{ matrix.arch }} \
             --output kb-mcp-${{ matrix.platform }}-${{ matrix.arch }}${{ matrix.ext }} \
             --compress GZip
@@ -206,7 +210,7 @@ jobs:
         run: |
           # Ensure dist directory exists with CLI
           mkdir -p dist/cli
-          cp dist/cli/basic-cli.js dist/cli/ || echo "CLI already in place"
+          cp dist/cli/standalone-cli.js dist/cli/ || echo "CLI already in place"
           
           # Create package tarball
           npm pack
