@@ -2,16 +2,16 @@
 
 [![Version](https://img.shields.io/npm/v/kb-mcp)](https://www.npmjs.com/package/kb-mcp)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![SOC2](https://img.shields.io/badge/SOC2-Compliant-green)](docs/compliance/SOC2.md)
+[![Security](https://img.shields.io/badge/SOC2-Ready-yellow)](docs/security/roadmap.md)
 [![Security](https://img.shields.io/badge/Security-A+-brightgreen)](docs/security/README.md)
 
-A production-ready, SOC2-compliant knowledge base management system that works as both a CLI tool and MCP (Model Context Protocol) server. Designed for enterprise security, compliance, and scalability.
+A knowledge base management system that works as both a CLI tool and MCP (Model Context Protocol) server. Features enterprise-ready security frameworks and is designed for scalability with SOC2 compliance roadmap.
 
 ## 🌟 Key Features
 
 ### Security & Compliance
 - 🔐 **Enterprise-Grade Security**: AES-256-GCM encryption, secure authentication, rate limiting
-- 📋 **SOC2 Compliant**: Full audit logging, data retention policies, access controls
+- 📋 **SOC2-Ready Frameworks**: Audit logging, data retention, and access control structures in place
 - 🛡️ **GDPR Ready**: PII detection, data anonymization, right to erasure
 - 🔑 **Multi-Factor Authentication**: TOTP-based MFA, API key management
 - 🚦 **Rate Limiting**: DDoS protection, configurable limits per resource
