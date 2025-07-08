@@ -23,7 +23,7 @@ export async function serveCommand(
     let transport: 'stdio' | 'http' | 'websocket' = 'stdio';
     if (options.websocket) {
       transport = 'websocket';
-    } else if (options.port || options.http) {
+    } else if (options.port || options.connection?.port || 3000 || options.http) {
       transport = 'http';
     }
     
@@ -33,7 +33,7 @@ export async function serveCommand(
     const serverOptions: SecureMCPServerOptions = {
       configPath: options.config,
       transport,
-      port: options.port ? parseInt(options.port) : undefined,
+      port: options.port || options.connection?.port || 3000 ? parseInt(options.port || options.connection?.port || 3000) : undefined,
       tlsEnabled: options.tls || false,
       tlsCert: options.cert,
       tlsKey: options.key,
@@ -52,7 +52,7 @@ export async function serveCommand(
     console.log(chalk.gray('─'.repeat(40)));
     console.log(`Transport:  ${chalk.cyan(transport)}`);
     if (transport !== 'stdio') {
-      console.log(`Port:       ${chalk.cyan(serverOptions.port || 3000)}`);
+      console.log(`Port:       ${chalk.cyan(serverOptions.port || serverOptions.connection?.port || 3000 || 3000)}`);
       console.log(`TLS:        ${serverOptions.tlsEnabled ? chalk.green('Enabled') : chalk.gray('Disabled')}`);
     }
     console.log(`Strict:     ${serverOptions.strictMode ? chalk.yellow('Enabled') : chalk.gray('Disabled')}`);
@@ -69,7 +69,7 @@ export async function serveCommand(
     // Display endpoints for HTTP/WebSocket modes
     if (transport !== 'stdio') {
       const protocol = serverOptions.tlsEnabled ? 'https' : 'http';
-      const port = serverOptions.port || 3000;
+      const port = serverOptions.port || serverOptions.connection?.port || 3000 || 3000;
       
       console.log('\n' + chalk.bold('Endpoints:'));
       console.log(chalk.gray('─'.repeat(40)));
@@ -103,7 +103,7 @@ export async function serveCommand(
       }, null, 2)));
     } else {
       console.log('Connect your MCP client to:');
-      console.log(chalk.cyan(`  ${transport === 'websocket' ? 'ws' : 'http'}://localhost:${serverOptions.port || 3000}/mcp`));
+      console.log(chalk.cyan(`  ${transport === 'websocket' ? 'ws' : 'http'}://localhost:${serverOptions.port || serverOptions.connection?.port || 3000 || 3000}/mcp`));
       
       if (serverOptions.strictMode) {
         console.log('\n' + chalk.yellow('⚠️  Authentication required. Include Bearer token in requests.'));

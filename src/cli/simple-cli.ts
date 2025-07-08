@@ -81,7 +81,7 @@ program
   .option('-p, --port <number>', 'Port to listen on', '3000')
   .action((options) => {
     console.log('🚀 Starting KB-MCP server...');
-    console.log(`Port: ${options.port}`);
+    console.log(`Port: ${options.port || options.connection?.port || 3000}`);
     console.log('✅ Server would start here!');
     console.log('\nTo use with Claude Desktop, add to config:');
     console.log('"kb-mcp": { "command": "kb", "args": ["serve"] }');

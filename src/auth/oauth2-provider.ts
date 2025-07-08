@@ -167,18 +167,20 @@ export class OAuth2Provider {
     this.app.delete('/oauth2/users/:id', this.requireAuth.bind(this), this.handleDeleteUser.bind(this));
     
     // Health check
-    this.app.get('/oauth2/health', (req, res) => {
+    this.app.get('/oauth2/health', (_req, res) => {
       res.json({
         status: 'healthy',
         timestamp: new Date().toISOString(),
         activeUsers: this.users.size,
-        providers: Object.keys(this.config.providers).filter(p => this.config.providers[p])
+        providers: Object.keys(this.config.providers).filter(p => 
+          this.config.providers[p as keyof typeof this.config.providers]
+        )
       });
     });
   }
 
-  private async handleAuthorize(req: express.Request, res: express.Response): Promise<void> {
-    const { response_type, client_id, redirect_uri, scope, state } = req.query;
+  private async handleAuthorize(_req: express.Request, res: express.Response): Promise<void> {
+    const { response_type, client_id: _client_id, redirect_uri, scope: _scope, state } = _req.query;
     
     if (response_type !== 'code') {
       res.status(400).json({ error: 'unsupported_response_type' });
@@ -196,7 +198,7 @@ export class OAuth2Provider {
   }
 
   private async handleToken(req: express.Request, res: express.Response): Promise<void> {
-    const { grant_type, code, refresh_token, client_id, client_secret } = req.body;
+    const { grant_type, code, refresh_token, client_id, client_secret: _client_secret } = req.body;
     
     try {
       if (grant_type === 'authorization_code') {
@@ -264,19 +266,19 @@ export class OAuth2Provider {
     }
   }
 
-  private async handleGoogleAuth(req: express.Request, res: express.Response): Promise<void> {
+  private async handleGoogleAuth(_req: express.Request, res: express.Response): Promise<void> {
     if (!this.config.providers.google) {
       res.status(404).json({ error: 'Google OAuth not configured' });
       return;
     }
     
-    const { client_id, redirect_uri } = this.config.providers.google;
+    const { clientId, redirectUri } = this.config.providers.google;
     const state = randomUUID();
     
     const authUrl = `https://accounts.google.com/oauth/authorize?` +
       `response_type=code&` +
-      `client_id=${client_id}&` +
-      `redirect_uri=${encodeURIComponent(redirect_uri)}&` +
+      `client_id=${clientId}&` +
+      `redirect_uri=${encodeURIComponent(redirectUri)}&` +
       `scope=${encodeURIComponent('openid email profile')}&` +
       `state=${state}`;
     
@@ -284,7 +286,7 @@ export class OAuth2Provider {
   }
 
   private async handleGoogleCallback(req: express.Request, res: express.Response): Promise<void> {
-    const { code, state } = req.query;
+    const { code, state: _state } = req.query;
     
     if (!code) {
       res.status(400).json({ error: 'Missing authorization code' });
@@ -303,18 +305,18 @@ export class OAuth2Provider {
     }
   }
 
-  private async handleGitHubAuth(req: express.Request, res: express.Response): Promise<void> {
+  private async handleGitHubAuth(_req: express.Request, res: express.Response): Promise<void> {
     if (!this.config.providers.github) {
       res.status(404).json({ error: 'GitHub OAuth not configured' });
       return;
     }
     
-    const { client_id, redirect_uri } = this.config.providers.github;
+    const { clientId, redirectUri } = this.config.providers.github;
     const state = randomUUID();
     
     const authUrl = `https://github.com/login/oauth/authorize?` +
-      `client_id=${client_id}&` +
-      `redirect_uri=${encodeURIComponent(redirect_uri)}&` +
+      `client_id=${clientId}&` +
+      `redirect_uri=${encodeURIComponent(redirectUri)}&` +
       `scope=${encodeURIComponent('user:email')}&` +
       `state=${state}`;
     
@@ -322,7 +324,7 @@ export class OAuth2Provider {
   }
 
   private async handleGitHubCallback(req: express.Request, res: express.Response): Promise<void> {
-    const { code, state } = req.query;
+    const { code, state: _state } = req.query;
     
     if (!code) {
       res.status(400).json({ error: 'Missing authorization code' });
@@ -341,19 +343,19 @@ export class OAuth2Provider {
     }
   }
 
-  private async handleAzureAuth(req: express.Request, res: express.Response): Promise<void> {
+  private async handleAzureAuth(_req: express.Request, res: express.Response): Promise<void> {
     if (!this.config.providers.azure) {
       res.status(404).json({ error: 'Azure OAuth not configured' });
       return;
     }
     
-    const { client_id, redirect_uri, tenant_id } = this.config.providers.azure;
+    const { clientId, redirectUri, tenantId } = this.config.providers.azure;
     const state = randomUUID();
     
-    const authUrl = `https://login.microsoftonline.com/${tenant_id}/oauth2/v2.0/authorize?` +
+    const authUrl = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/authorize?` +
       `response_type=code&` +
-      `client_id=${client_id}&` +
-      `redirect_uri=${encodeURIComponent(redirect_uri)}&` +
+      `client_id=${clientId}&` +
+      `redirect_uri=${encodeURIComponent(redirectUri)}&` +
       `scope=${encodeURIComponent('openid email profile')}&` +
       `state=${state}`;
     
@@ -361,7 +363,7 @@ export class OAuth2Provider {
   }
 
   private async handleAzureCallback(req: express.Request, res: express.Response): Promise<void> {
-    const { code, state } = req.query;
+    const { code, state: _state } = req.query;
     
     if (!code) {
       res.status(400).json({ error: 'Missing authorization code' });
@@ -472,7 +474,7 @@ export class OAuth2Provider {
     }
   }
 
-  private async handleListUsers(req: express.Request, res: express.Response): Promise<void> {
+  private async handleListUsers(_req: express.Request, res: express.Response): Promise<void> {
     const users = Array.from(this.users.values()).map(user => ({
       id: user.id,
       email: user.email,
@@ -588,7 +590,7 @@ export class OAuth2Provider {
     
     const accessToken = jwt.sign(payload, this.config.jwtSecret, {
       expiresIn: this.config.tokenExpiration
-    });
+    } as jwt.SignOptions);
     
     const refreshToken = randomUUID();
     const refreshTokenExpiry = new Date();
@@ -612,12 +614,12 @@ export class OAuth2Provider {
     if (!match) return 3600000; // 1 hour default
     
     const [, value, unit] = match;
-    const multipliers = { s: 1000, m: 60000, h: 3600000, d: 86400000 };
+    const multipliers: Record<string, number> = { s: 1000, m: 60000, h: 3600000, d: 86400000 };
     return parseInt(value) * multipliers[unit];
   }
 
   // Provider-specific token exchange methods
-  private async exchangeGoogleCode(code: string): Promise<any> {
+  private async exchangeGoogleCode(_code: string): Promise<any> {
     // Implementation would make actual HTTP requests to Google's OAuth endpoints
     // This is a placeholder for the actual implementation
     return {
@@ -629,7 +631,7 @@ export class OAuth2Provider {
     };
   }
 
-  private async exchangeGitHubCode(code: string): Promise<any> {
+  private async exchangeGitHubCode(_code: string): Promise<any> {
     // Implementation would make actual HTTP requests to GitHub's OAuth endpoints
     return {
       email: 'user@example.com',
@@ -640,7 +642,7 @@ export class OAuth2Provider {
     };
   }
 
-  private async exchangeAzureCode(code: string): Promise<any> {
+  private async exchangeAzureCode(_code: string): Promise<any> {
     // Implementation would make actual HTTP requests to Azure's OAuth endpoints
     return {
       email: 'user@example.com',
@@ -689,7 +691,7 @@ export class OAuth2Provider {
     return randomUUID();
   }
 
-  private async exchangeCodeForTokens(code: string, clientId: string): Promise<any> {
+  private async exchangeCodeForTokens(_code: string, _clientId: string): Promise<any> {
     // In a real implementation, validate the authorization code
     // For now, return a mock response
     throw new Error('Not implemented');

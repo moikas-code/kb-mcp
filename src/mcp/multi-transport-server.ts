@@ -112,8 +112,8 @@ export class MultiTransportServer {
         
         // Extract authentication context from request metadata
         let authContext = null;
-        if (this.authMiddleware && request.meta?.headers) {
-          authContext = await this.authMiddleware.extractAuthContext(request.meta.headers);
+        if (this.authMiddleware && request.params._meta?.headers) {
+          authContext = await this.authMiddleware.extractAuthContext(request.params._meta.headers);
         }
         
         // Authorize request
@@ -246,7 +246,7 @@ export class MultiTransportServer {
       };
       
       this.transports.websocket = new WebSocketTransport(wsOptions, this.mcpServer);
-      this.logger.info(`WebSocket transport initialized on port ${wsOptions.port}`);
+      this.logger.info(`WebSocket transport initialized on port ${wsOptions.port || wsOptions.connection?.port || 3000}`);
     }
 
     // Initialize SSE transport
@@ -262,7 +262,7 @@ export class MultiTransportServer {
       };
       
       this.transports.sse = new SSETransport(sseOptions, this.mcpServer);
-      this.logger.info(`SSE transport initialized on port ${sseOptions.port}`);
+      this.logger.info(`SSE transport initialized on port ${sseOptions.port || sseOptions.connection?.port || 3000}`);
     }
   }
 

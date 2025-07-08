@@ -12,6 +12,7 @@ import {
 } from './types.js';
 import { Result } from '../types/index.js';
 import { GRAPH_SCHEMA } from './schema.js';
+import { toKBError } from '../types/error-utils.js';
 
 export class GraphMemory implements IGraphMemory {
   private connection: FalkorDBConnection;
@@ -126,7 +127,7 @@ export class GraphMemory implements IGraphMemory {
     if (!result.data?.[0]) {
       return {
         success: false,
-        error: 'Node not found',
+        error: toKBError(new Error('Node not found'), { operation: 'update' }),
       };
     }
 
@@ -179,7 +180,7 @@ export class GraphMemory implements IGraphMemory {
     if (!result.data?.[0]) {
       return {
         success: false,
-        error: 'Node not found',
+        error: toKBError(new Error('Node not found'), { operation: 'reinforce' }),
       };
     }
 
@@ -208,7 +209,7 @@ export class GraphMemory implements IGraphMemory {
     if (!validation.success) {
       return {
         success: false,
-        error: `Invalid node: ${validation.error.message}`,
+        error: toKBError(new Error(`Invalid node: ${validation.error.message}`), { operation: 'createNode' }),
       };
     }
 
@@ -217,7 +218,7 @@ export class GraphMemory implements IGraphMemory {
     if (!template) {
       return {
         success: false,
-        error: `Unknown node type: ${node.type}`,
+        error: toKBError(new Error(`Unknown node type: ${node.type}`), { operation: 'createNode' }),
       };
     }
 
@@ -260,7 +261,7 @@ export class GraphMemory implements IGraphMemory {
     if (!validation.success) {
       return {
         success: false,
-        error: `Invalid edge: ${validation.error.message}`,
+        error: toKBError(new Error(`Invalid edge: ${validation.error.message}`), { operation: 'createEdge' }),
       };
     }
 
@@ -296,7 +297,7 @@ export class GraphMemory implements IGraphMemory {
     if (!result.data?.[0]) {
       return {
         success: false,
-        error: 'Failed to create edge - nodes might not exist',
+        error: toKBError(new Error('Failed to create edge - nodes might not exist'), { operation: 'createEdge' }),
       };
     }
 
@@ -388,7 +389,7 @@ export class GraphMemory implements IGraphMemory {
     if (!result.data?.[0]) {
       return {
         success: false,
-        error: 'No path found between nodes',
+        error: toKBError(new Error('No path found between nodes'), { operation: 'findPath' }),
       };
     }
 
@@ -435,7 +436,7 @@ export class GraphMemory implements IGraphMemory {
     } catch (error) {
       return {
         success: false,
-        error: `Batch operation failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error: toKBError(new Error(`Batch operation failed: ${error instanceof Error ? error.message : 'Unknown error'}`), { operation: 'batch' }),
       };
     }
   }

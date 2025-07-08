@@ -18,6 +18,7 @@ import {
 } from './types.js';
 import { Result } from '../types/index.js';
 import { GRAPH_SCHEMA } from './schema.js';
+import { toKBError } from '../types/error-utils.js';
 
 export interface UnifiedMemoryConfig extends FalkorDBConfig {
   embedding_model?: string;
@@ -181,7 +182,7 @@ export class UnifiedMemory extends EventEmitter implements IUnifiedMemory {
     } catch (error) {
       return {
         success: false,
-        error: `Failed to store: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error: toKBError(new Error(`Failed to store: ${error instanceof Error ? error.message : 'Unknown error'}`), { operation: 'store' }),
       };
     }
   }
@@ -267,7 +268,7 @@ export class UnifiedMemory extends EventEmitter implements IUnifiedMemory {
     } catch (error) {
       return {
         success: false,
-        error: `Search failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error: toKBError(new Error(`Search failed: ${error instanceof Error ? error.message : 'Unknown error'}`), { operation: 'search' }),
       };
     }
   }
@@ -315,7 +316,7 @@ export class UnifiedMemory extends EventEmitter implements IUnifiedMemory {
     } catch (error) {
       return {
         success: false,
-        error: `Consolidation failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error: toKBError(new Error(`Consolidation failed: ${error instanceof Error ? error.message : 'Unknown error'}`), { operation: 'consolidate' }),
       };
     }
   }
@@ -372,7 +373,7 @@ export class UnifiedMemory extends EventEmitter implements IUnifiedMemory {
     } catch (error) {
       return {
         success: false,
-        error: `Contradiction detection failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error: toKBError(new Error(`Contradiction detection failed: ${error instanceof Error ? error.message : 'Unknown error'}`), { operation: 'resolveContradictions' }),
       };
     }
   }
@@ -451,7 +452,7 @@ export class UnifiedMemory extends EventEmitter implements IUnifiedMemory {
     } catch (error) {
       return {
         success: false,
-        error: `Insight generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error: toKBError(new Error(`Insight generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`), { operation: 'generateInsights' }),
       };
     }
   }
@@ -473,7 +474,7 @@ export class UnifiedMemory extends EventEmitter implements IUnifiedMemory {
       default:
         return {
           success: false,
-          error: `Unsupported export format: ${format}`,
+          error: toKBError(new Error(`Unsupported export format: ${format}`), { operation: 'export' }),
         };
     }
   }
@@ -495,7 +496,7 @@ export class UnifiedMemory extends EventEmitter implements IUnifiedMemory {
       default:
         return {
           success: false,
-          error: `Unsupported import format: ${format}`,
+          error: toKBError(new Error(`Unsupported import format: ${format}`), { operation: 'import' }),
         };
     }
   }
@@ -549,7 +550,7 @@ export class UnifiedMemory extends EventEmitter implements IUnifiedMemory {
     } catch (error) {
       return {
         success: false,
-        error: `Failed to get stats: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error: toKBError(new Error(`Failed to get stats: ${error instanceof Error ? error.message : 'Unknown error'}`), { operation: 'getStats' }),
       };
     }
   }
@@ -787,27 +788,6 @@ export class UnifiedMemory extends EventEmitter implements IUnifiedMemory {
   }
 
   /**
-   * Shutdown memory system
-   */
-  async shutdown(): Promise<void> {
-    // Stop memory monitoring
-    this.memoryManager.stop();
-    
-    // Stop auto-consolidation
-    if (this.consolidationTimer) {
-      clearInterval(this.consolidationTimer);
-    }
-    
-    // Final cleanup
-    await this.cleanupMemory();
-    
-    // Disconnect from database
-    await this.connection.disconnect();
-    
-    console.log('Unified memory system shut down');
-  }
-
-  /**
    * Export as JSON
    */
   private async exportJSON(): Promise<Result<string>> {
@@ -818,7 +798,7 @@ export class UnifiedMemory extends EventEmitter implements IUnifiedMemory {
       if (!nodesResult.success || !edgesResult.success) {
         return {
           success: false,
-          error: 'Failed to fetch graph data',
+          error: toKBError(new Error('Failed to fetch graph data'), { operation: 'exportJSON' }),
         };
       }
       
@@ -836,7 +816,7 @@ export class UnifiedMemory extends EventEmitter implements IUnifiedMemory {
     } catch (error) {
       return {
         success: false,
-        error: `Export failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error: toKBError(new Error(`Export failed: ${error instanceof Error ? error.message : 'Unknown error'}`), { operation: 'exportJSON' }),
       };
     }
   }
@@ -867,7 +847,7 @@ export class UnifiedMemory extends EventEmitter implements IUnifiedMemory {
     } catch (error) {
       return {
         success: false,
-        error: `Import failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error: toKBError(new Error(`Import failed: ${error instanceof Error ? error.message : 'Unknown error'}`), { operation: 'importJSON' }),
       };
     }
   }
@@ -879,7 +859,7 @@ export class UnifiedMemory extends EventEmitter implements IUnifiedMemory {
     // GraphML export implementation
     return {
       success: false,
-      error: 'GraphML export not yet implemented',
+      error: toKBError(new Error('GraphML export not yet implemented'), { operation: 'exportGraphML' }),
     };
   }
 
@@ -890,7 +870,7 @@ export class UnifiedMemory extends EventEmitter implements IUnifiedMemory {
     // GraphML import implementation
     return {
       success: false,
-      error: 'GraphML import not yet implemented',
+      error: toKBError(new Error('GraphML import not yet implemented'), { operation: 'importGraphML' }),
     };
   }
 }

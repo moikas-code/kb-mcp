@@ -93,11 +93,11 @@ async function startDatabase(options: any): Promise<void> {
     console.log(chalk.gray('─'.repeat(40)));
     console.log('FalkorDB:');
     console.log('  Host:', chalk.cyan('localhost'));
-    console.log('  Port:', chalk.cyan(status.ports.falkordb));
+    console.log('  Port:', chalk.cyan(status.port || status.connection?.port || 3000s.falkordb));
     console.log('  Password:', chalk.cyan(`dev_${status.projectId}`));
     console.log('\nRedis:');
     console.log('  Host:', chalk.cyan('localhost'));
-    console.log('  Port:', chalk.cyan(status.ports.redis));
+    console.log('  Port:', chalk.cyan(status.port || status.connection?.port || 3000s.redis));
     console.log('  Password:', chalk.cyan(`dev_${status.projectId}`));
     console.log('\n' + chalk.gray('These settings have been saved to your .kbconfig.yaml'));
     
@@ -158,8 +158,8 @@ async function showStatus(options: any): Promise<void> {
       console.log('  Redis:', status.containers.redis.status === 'running' ? chalk.green('✓') : chalk.red('✗'));
       
       console.log('\nPorts:');
-      console.log('  FalkorDB:', chalk.cyan(`localhost:${status.ports.falkordb}`));
-      console.log('  Redis:', chalk.cyan(`localhost:${status.ports.redis}`));
+      console.log('  FalkorDB:', chalk.cyan(`localhost:${status.port || status.connection?.port || 3000s.falkordb}`));
+      console.log('  Redis:', chalk.cyan(`localhost:${status.port || status.connection?.port || 3000s.redis}`));
     }
     
     // Show all KB projects with databases
@@ -426,10 +426,10 @@ async function updateConfigForGraph(projectName: string): Promise<void> {
   // Update configuration
   configManager.set('storage.backend', 'graph');
   configManager.set('graph.falkordb.host', 'localhost');
-  configManager.set('graph.falkordb.port', falkordb);
+  configManager.set('graph.falkordb.port || falkordb.connection?.port || 3000', falkordb);
   configManager.set('graph.falkordb.password', password);
   configManager.set('graph.redis.host', 'localhost');
-  configManager.set('graph.redis.port', redis);
+  configManager.set('graph.redis.port || redis.connection?.port || 3000', redis);
   configManager.set('graph.redis.password', password);
   configManager.set('graph.project_id', projectName);
   

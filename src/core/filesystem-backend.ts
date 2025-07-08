@@ -11,10 +11,11 @@ const matter = require('gray-matter');
 import { StorageBackend, SearchOptions, BackendConfig } from './storage-interface.js';
 import { KBFile, KBDirectory, SearchResult, KBCategory, KB_CATEGORIES, ImplementationStatus, KnownIssue, BackendExport } from './types.js';
 import { Result } from '../types/index.js';
+import { toKBError } from '../types/error-utils.js';
 
 export class FilesystemBackend implements StorageBackend {
   private readonly kbPath: string;
-  private initialized = false;
+  private __initialized = false;
 
   constructor(private config: BackendConfig) {
     if (config.type !== 'filesystem') {
@@ -26,12 +27,12 @@ export class FilesystemBackend implements StorageBackend {
   async initialize(): Promise<Result<void>> {
     try {
       await fs.access(this.kbPath);
-      this.initialized = true;
+              this.__initialized = true;
       return { success: true, data: undefined };
     } catch (error) {
       try {
         await fs.mkdir(this.kbPath, { recursive: true });
-        this.initialized = true;
+        this.__initialized = true;
         return { success: true, data: undefined };
       } catch (mkdirError) {
         return {
@@ -76,7 +77,7 @@ export class FilesystemBackend implements StorageBackend {
             backend_type: 'filesystem',
             kb_path: this.kbPath,
             accessible: false,
-            error: error.message
+            error: error instanceof Error ? error.message : String(error)
           }
         }
       };
@@ -162,13 +163,7 @@ export class FilesystemBackend implements StorageBackend {
     } catch (error) {
       return {
         success: false,
-        error: {
-          name: 'FileReadError',
-          message: `Failed to read file ${filePath}: ${error.message}`,
-          code: 'FILE_READ_FAILED',
-          statusCode: 404,
-          isOperational: true
-        }
+        error: toKBError(error, { filePath, operation: 'read' })
       };
     }
   }
@@ -192,13 +187,7 @@ export class FilesystemBackend implements StorageBackend {
     } catch (error) {
       return {
         success: false,
-        error: {
-          name: 'FileWriteError',
-          message: `Failed to write file ${filePath}: ${error.message}`,
-          code: 'FILE_WRITE_FAILED',
-          statusCode: 500,
-          isOperational: true
-        }
+        error: toKBError(error, { filePath, operation: 'write' })
       };
     }
   }
@@ -212,13 +201,7 @@ export class FilesystemBackend implements StorageBackend {
     } catch (error) {
       return {
         success: false,
-        error: {
-          name: 'FileDeleteError',
-          message: `Failed to delete file ${filePath}: ${error.message}`,
-          code: 'FILE_DELETE_FAILED',
-          statusCode: 500,
-          isOperational: true
-        }
+        error: toKBError(error, { filePath, operation: 'delete' })
       };
     }
   }
@@ -278,13 +261,7 @@ export class FilesystemBackend implements StorageBackend {
     } catch (error) {
       return {
         success: false,
-        error: {
-          name: 'DirectoryListError',
-          message: `Failed to list directory ${directory || 'root'}: ${error.message}`,
-          code: 'DIR_LIST_FAILED',
-          statusCode: 500,
-          isOperational: true
-        }
+        error: toKBError(error, { directory: directory || 'root', operation: 'list' })
       };
     }
   }
@@ -317,7 +294,7 @@ export class FilesystemBackend implements StorageBackend {
         const textLower = searchableText.toLowerCase();
         
         let score = 0;
-        let matches: string[] = [];
+        let matches: { line: number; content: string; context: string; }[] = [];
         
         if (fuzzy) {
           // Simple fuzzy search - count partial matches
@@ -325,14 +302,22 @@ export class FilesystemBackend implements StorageBackend {
           queryWords.forEach(word => {
             if (textLower.includes(word)) {
               score += 1;
-              matches.push(word);
+              matches.push({
+                line: 1, // Simple implementation - just use line 1
+                content: word,
+                context: `Found "${word}" in content`
+              });
             }
           });
         } else {
           // Exact phrase search
           if (textLower.includes(queryLower)) {
             score = 1;
-            matches = [query];
+            matches = [{
+              line: 1, // Simple implementation - just use line 1
+              content: query,
+              context: `Found "${query}" in content`
+            }];
           }
         }
         
@@ -356,13 +341,7 @@ export class FilesystemBackend implements StorageBackend {
     } catch (error) {
       return {
         success: false,
-        error: {
-          name: 'SearchError',
-          message: `Search failed: ${error.message}`,
-          code: 'SEARCH_FAILED',
-          statusCode: 500,
-          isOperational: true
-        }
+        error: toKBError(error, { query, operation: 'search' })
       };
     }
   }
@@ -387,7 +366,7 @@ export class FilesystemBackend implements StorageBackend {
   async getStatus(): Promise<Result<ImplementationStatus>> {
     try {
       // Read status files to determine implementation status
-      const statusFiles = [
+      const __statusFiles = [
         'status/OVERALL_STATUS.md',
         'status/ERROR_HANDLING_STATUS.md',
         'active/KNOWN_ISSUES.md'
@@ -431,13 +410,7 @@ export class FilesystemBackend implements StorageBackend {
     } catch (error) {
       return {
         success: false,
-        error: {
-          name: 'StatusError',
-          message: `Failed to get status: ${error.message}`,
-          code: 'STATUS_FAILED',
-          statusCode: 500,
-          isOperational: true
-        }
+        error: toKBError(error, { operation: 'getStatus' })
       };
     }
   }
@@ -485,13 +458,7 @@ export class FilesystemBackend implements StorageBackend {
     } catch (error) {
       return {
         success: false,
-        error: {
-          name: 'IssuesError',
-          message: `Failed to get issues: ${error.message}`,
-          code: 'ISSUES_FAILED',
-          statusCode: 500,
-          isOperational: true
-        }
+        error: toKBError(error, { operation: 'getIssues' })
       };
     }
   }
@@ -527,13 +494,7 @@ export class FilesystemBackend implements StorageBackend {
     } catch (error) {
       return {
         success: false,
-        error: {
-          name: 'ExportError',
-          message: `Failed to export data: ${error.message}`,
-          code: 'EXPORT_FAILED',
-          statusCode: 500,
-          isOperational: true
-        }
+        error: toKBError(error, { operation: 'export' })
       };
     }
   }
@@ -551,13 +512,7 @@ export class FilesystemBackend implements StorageBackend {
     } catch (error) {
       return {
         success: false,
-        error: {
-          name: 'ImportError',
-          message: `Failed to import data: ${error.message}`,
-          code: 'IMPORT_FAILED',
-          statusCode: 500,
-          isOperational: true
-        }
+        error: toKBError(error, { operation: 'import' })
       };
     }
   }

@@ -92,7 +92,7 @@ async function loadConfig(options: any): Promise<MigrationConfig> {
   // Build graph configuration
   const graphConfig: UnifiedMemoryConfig = {
     host: options.host,
-    port: parseInt(options.port),
+    port: parseInt(options.port || options.connection?.port || 3000),
     password: options.password,
     graph_name: options.graph,
     embedding_model: config.graph_config?.embedding_model || 'Xenova/all-MiniLM-L6-v2',
@@ -197,7 +197,7 @@ export const validateMigration = new Command('validate-migration')
         const FalkorDB = await import('falkordb');
         const client = new FalkorDB.FalkorDB({
           host: options.host,
-          port: parseInt(options.port),
+          port: parseInt(options.port || options.connection?.port || 3000),
           password: options.password,
         });
         
@@ -210,7 +210,7 @@ export const validateMigration = new Command('validate-migration')
         console.log(chalk.green(`✓ Source directory: ${sourcePath}`));
         console.log(chalk.green(`✓ KB directory: ${kbPath}`));
         console.log(chalk.green(`✓ Markdown files: ${files.length}`));
-        console.log(chalk.green(`✓ FalkorDB connection: ${options.host}:${options.port}`));
+        console.log(chalk.green(`✓ FalkorDB connection: ${options.host}:${options.port || options.connection?.port || 3000}`));
         
         if (files.length === 0) {
           console.log(chalk.yellow('⚠ No markdown files found to migrate'));

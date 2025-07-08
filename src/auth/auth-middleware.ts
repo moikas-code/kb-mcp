@@ -3,7 +3,7 @@
  * Provides OAuth2 token validation and user context for MCP requests
  */
 
-import { OAuth2Provider, TokenPayload, User } from './oauth2-provider.js';
+import { OAuth2Provider, User } from './oauth2-provider.js';
 import { Result } from '../types/index.js';
 import winston from 'winston';
 
@@ -297,7 +297,7 @@ export class AuthMiddleware {
    */
   private async authorizeResource(
     authContext: AuthContext,
-    toolName: string,
+    _toolName: string,
     args: any
   ): Promise<Result<void>> {
     try {

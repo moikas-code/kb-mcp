@@ -6,6 +6,7 @@
 import { Pool, createPool } from 'generic-pool';
 import { FalkorDB } from 'falkordb';
 import { Result } from '../types/index.js';
+import { ErrorTypes, toKBError } from '../types/error-utils.js';
 import winston from 'winston';
 
 export interface ConnectionPoolConfig {
@@ -73,13 +74,13 @@ export class FalkorDBConnectionPool {
         validate: (connection: PooledConnection) => this.validateConnection(connection),
       },
       {
-        min: this.config.pool.min,
-        max: this.config.pool.max,
-        acquireTimeoutMillis: this.config.pool.acquireTimeoutMillis,
-        idleTimeoutMillis: this.config.pool.idleTimeoutMillis,
-        evictionRunIntervalMillis: this.config.pool.evictionRunIntervalMillis,
-        testOnBorrow: this.config.pool.testOnBorrow,
-        testOnReturn: this.config.pool.testOnReturn,
+        min: (this.config.pool?.min) ?? 2,
+        max: (this.config.pool?.max) ?? 10,
+        acquireTimeoutMillis: (this.config.pool?.acquireTimeoutMillis) ?? 30000,
+        idleTimeoutMillis: (this.config.pool?.idleTimeoutMillis) ?? 300000,
+        evictionRunIntervalMillis: (this.config.pool?.evictionRunIntervalMillis) ?? 60000,
+        testOnBorrow: (this.config.pool?.testOnBorrow) ?? true,
+        testOnReturn: (this.config.pool?.testOnReturn) ?? true,
       }
     );
   }
@@ -100,8 +101,7 @@ export class FalkorDBConnectionPool {
       this.isInitialized = true;
       
       this.logger.info('Connection pool initialized', {
-        host: this.config.host,
-        port: this.config.port,
+        port: this.config.port || this.config.connection?.port || 3000,
         graph: this.config.graph_name,
         pool_config: this.config.pool,
       });
@@ -111,7 +111,13 @@ export class FalkorDBConnectionPool {
       this.logger.error('Failed to initialize connection pool', error);
       return {
         success: false,
-        error: `Failed to initialize connection pool: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error: {
+          name: 'ConnectionPoolInitError',
+          message: `Failed to initialize connection pool: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          code: 'CONNECTION_POOL_INIT_FAILED',
+          statusCode: 500,
+          isOperational: true
+        }
       };
     }
   }
@@ -123,7 +129,13 @@ export class FalkorDBConnectionPool {
     if (!this.isInitialized) {
       return {
         success: false,
-        error: 'Connection pool not initialized',
+        error: {
+          name: 'ConnectionPoolNotInitialized',
+          message: 'Connection pool not initialized',
+          code: 'CONNECTION_POOL_NOT_INITIALIZED',
+          statusCode: 500,
+          isOperational: true
+        }
       };
     }
 
@@ -164,7 +176,7 @@ export class FalkorDBConnectionPool {
 
       return {
         success: false,
-        error: `Query failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error: toKBError(error, { query: cypher, params }),
       };
     } finally {
       // Always release connection back to pool
@@ -181,7 +193,7 @@ export class FalkorDBConnectionPool {
     if (!this.isInitialized) {
       return {
         success: false,
-        error: 'Connection pool not initialized',
+        error: ErrorTypes.INITIALIZATION_ERROR('Connection pool not initialized'),
       };
     }
 
@@ -227,7 +239,7 @@ export class FalkorDBConnectionPool {
 
       return {
         success: false,
-        error: `Transaction failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error: toKBError(error, { operation: 'transaction', queries }),
       };
     } finally {
       // Always release connection back to pool
@@ -248,11 +260,11 @@ export class FalkorDBConnectionPool {
     pool_config: any;
   } {
     return {
-      total_connections: this.pool.size,
-      available_connections: this.pool.available,
-      borrowed_connections: this.pool.borrowed,
-      pending_requests: this.pool.pending,
-      pool_config: this.config.pool,
+      total_connections: this.pool?.size ?? 0,
+      available_connections: this.pool?.available ?? 0,
+      borrowed_connections: this.pool?.borrowed ?? 0,
+      pending_requests: this.pool?.pending ?? 0,
+      pool_config: this.config?.pool ?? {},
     };
   }
 
@@ -290,7 +302,7 @@ export class FalkorDBConnectionPool {
     } catch (error) {
       return {
         success: false,
-        error: `Health check failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error: toKBError(error, { operation: 'healthCheck' }),
       };
     }
   }
@@ -319,15 +331,14 @@ export class FalkorDBConnectionPool {
    * Create a new database connection
    */
   private async createConnection(): Promise<PooledConnection> {
-    const client = new FalkorDB({
-      host: this.config.host,
-      port: this.config.port,
+    const client = await FalkorDB.connect({
+      url: undefined,
+      socket: {
+        host: this.config.host,
+        port: this.config.port || this.config.connection?.port || 3000,
+      },
       password: this.config.password,
     });
-
-    // Test connection by connecting
-    await client.connect();
-    
     // Get graph instance
     const graph = client.selectGraph(this.config.graph_name);
     

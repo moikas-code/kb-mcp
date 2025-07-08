@@ -132,7 +132,7 @@ export class BackendManager {
         success: false,
         error: {
           name: 'BackendSwitchError',
-          message: `Failed to switch backend: ${error.message}`,
+          message: `Failed to switch backend: ${error instanceof Error ? error.message : String(error)}`,
           code: 'BACKEND_SWITCH_FAILED',
           statusCode: 500,
           isOperational: true
@@ -160,7 +160,7 @@ export class BackendManager {
         success: false,
         error: {
           name: 'ConfigUpdateError',
-          message: `Failed to update configuration: ${error.message}`,
+          message: `Failed to update configuration: ${error instanceof Error ? error.message : String(error)}`,
           code: 'CONFIG_UPDATE_FAILED',
           statusCode: 500,
           isOperational: true
@@ -227,7 +227,8 @@ export class BackendManager {
   private async checkGraphAvailability(): Promise<boolean> {
     try {
       // Try to create a test graph backend
-      const testConfig: BackendConfig = {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const ___testConfig: BackendConfig = {
         type: 'graph',
         graph: {
           connection: {
@@ -279,7 +280,7 @@ export class BackendManager {
         success: false,
         error: {
           name: 'BackendCreationError',
-          message: `Failed to create backend: ${error.message}`,
+          message: `Failed to create backend: ${error instanceof Error ? error.message : String(error)}`,
           code: 'BACKEND_CREATION_FAILED',
           statusCode: 500,
           isOperational: true
@@ -304,7 +305,7 @@ export class BackendManager {
         success: false,
         error: {
           name: 'ConfigLoadError',
-          message: `Failed to load configuration: ${error.message}`,
+          message: `Failed to load configuration: ${error instanceof Error ? error.message : String(error)}`,
           code: 'CONFIG_LOAD_FAILED',
           statusCode: 500,
           isOperational: true

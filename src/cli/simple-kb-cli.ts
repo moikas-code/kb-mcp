@@ -331,8 +331,8 @@ kb search "keyword"
     console.log(chalk.gray('Transport:'), options.stdio ? 'stdio' : 'http');
     
     if (!options.stdio) {
-      console.log(chalk.gray('Port:'), chalk.cyan(options.port));
-      console.log(chalk.gray('URL:'), chalk.cyan(`http://localhost:${options.port}`));
+      console.log(chalk.gray('Port:'), chalk.cyan(options.port || options.connection?.port || 3000));
+      console.log(chalk.gray('URL:'), chalk.cyan(`http://localhost:${options.port || options.connection?.port || 3000}`));
     }
     
     console.log(chalk.yellow('\nMCP server functionality not yet implemented in simple CLI'));

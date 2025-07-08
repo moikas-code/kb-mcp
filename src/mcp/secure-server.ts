@@ -344,7 +344,7 @@ export class SecureMCPServer {
     // MCP endpoints
     if (this.options.transport === 'websocket') {
       // WebSocket transport
-      const server = app.listen(this.options.port || 3000);
+      const server = app.listen(this.options.port || options.connection?.port || 3000 || 3000);
       const transport = new SSEServerTransport('/mcp', server);
       await this.server.connect(transport);
     } else {
@@ -361,7 +361,7 @@ export class SecureMCPServer {
         }
       });
       
-      app.listen(this.options.port || 3000);
+      app.listen(this.options.port || options.connection?.port || 3000 || 3000);
     }
   }
 

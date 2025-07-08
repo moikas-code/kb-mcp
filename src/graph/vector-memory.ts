@@ -12,6 +12,7 @@ import {
   Node, SearchOptions, GraphQueryResult, NodeType
 } from './types.js';
 import { Result } from '../types/index.js';
+import { toKBError } from '../types/error-utils.js';
 
 export class VectorMemory implements IVectorMemory {
   private connection: FalkorDBConnection;
@@ -50,7 +51,7 @@ export class VectorMemory implements IVectorMemory {
       if (!indexResult.success) {
         return {
           success: false,
-          error: `Failed to initialize vector index: ${indexResult.error}`,
+          error: toKBError(indexResult.error, { operation: 'initialize' }),
         };
       }
       
@@ -61,7 +62,7 @@ export class VectorMemory implements IVectorMemory {
     } catch (error) {
       return {
         success: false,
-        error: `Failed to initialize vector memory: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error: toKBError(error, { operation: 'initialize' }),
       };
     }
   }
@@ -194,7 +195,7 @@ export class VectorMemory implements IVectorMemory {
     } catch (error) {
       return {
         success: false,
-        error: `Failed to store: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error: toKBError(error, { operation: 'store' }),
       };
     }
   }
@@ -236,7 +237,7 @@ export class VectorMemory implements IVectorMemory {
     } catch (error) {
       return {
         success: false,
-        error: `Failed to retrieve: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error: toKBError(error, { operation: 'retrieve' }),
       };
     }
   }
@@ -270,13 +271,16 @@ export class VectorMemory implements IVectorMemory {
     const result = await this.connection.query(cypher, params);
     
     if (!result.success) {
-      return result;
+      return {
+        success: false,
+        error: toKBError(result.error, { operation: 'update' }),
+      };
     }
 
     if (!result.data?.[0]) {
       return {
         success: false,
-        error: 'Node not found',
+        error: toKBError('Node not found', { operation: 'update' }),
       };
     }
 
@@ -306,7 +310,10 @@ export class VectorMemory implements IVectorMemory {
     const result = await this.connection.query(cypher, { nodeId });
     
     if (!result.success) {
-      return result;
+      return {
+        success: false,
+        error: toKBError(result.error, { operation: 'forget' }),
+      };
     }
 
     // Remove from vector index
@@ -333,13 +340,16 @@ export class VectorMemory implements IVectorMemory {
     const result = await this.connection.query(cypher, { nodeId, amount });
     
     if (!result.success) {
-      return result;
+      return {
+        success: false,
+        error: toKBError(result.error, { operation: 'reinforce' }),
+      };
     }
 
     if (!result.data?.[0]) {
       return {
         success: false,
-        error: 'Node not found',
+        error: toKBError('Node not found', { operation: 'reinforce' }),
       };
     }
 
@@ -364,7 +374,10 @@ export class VectorMemory implements IVectorMemory {
     const result = await this.connection.query(cypher);
     
     if (!result.success) {
-      return result;
+      return {
+        success: false,
+        error: toKBError(result.error, { operation: 'getStats' }),
+      };
     }
 
     return {
@@ -404,13 +417,16 @@ export class VectorMemory implements IVectorMemory {
     const result = await this.connection.query(cypher, params);
     
     if (!result.success) {
-      return result;
+      return {
+        success: false,
+        error: toKBError(result.error, { operation: 'storeEmbedding' }),
+      };
     }
 
     if (!result.data?.[0]) {
       return {
         success: false,
-        error: 'Node not found',
+        error: toKBError('Node not found', { operation: 'storeEmbedding' }),
       };
     }
 
@@ -445,7 +461,7 @@ export class VectorMemory implements IVectorMemory {
     } catch (error) {
       return {
         success: false,
-        error: `Semantic search failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error: toKBError(error, { operation: 'semanticSearch' }),
       };
     }
   }
@@ -503,7 +519,7 @@ export class VectorMemory implements IVectorMemory {
     } catch (error) {
       return {
         success: false,
-        error: `Failed to update model: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error: toKBError(error, { operation: 'updateEmbeddingModel' }),
       };
     }
   }
@@ -550,7 +566,7 @@ export class VectorMemory implements IVectorMemory {
     } catch (error) {
       return {
         success: false,
-        error: `Failed to recompute embeddings: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error: toKBError(error, { operation: 'recomputeEmbeddings' }),
       };
     }
   }

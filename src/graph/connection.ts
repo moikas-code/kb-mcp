@@ -3,11 +3,12 @@
  * Handles database connections and query execution
  */
 
-import { FalkorDB } from 'falkordb';
+// import { FalkorDB } from 'falkordb';
 import { Result } from '../types/index.js';
 import { GRAPH_SCHEMA } from './schema.js';
 import { FalkorDBConnectionPool } from './connection-pool.js';
 import winston from 'winston';
+import { toKBError } from '../types/error-utils.js';
 
 export interface FalkorDBConfig {
   host: string;
@@ -58,8 +59,8 @@ export class FalkorDBConnection {
       graph_name: this.config.graph_name,
       pool: {
         min: 2,
-        max: this.config.max_connections,
-        acquireTimeoutMillis: this.config.connection_timeout,
+        max: this.config.max_connections ?? 10,
+        acquireTimeoutMillis: this.config.connection_timeout ?? 30000,
         idleTimeoutMillis: 300000,
         evictionRunIntervalMillis: 60000,
         testOnBorrow: true,
@@ -113,7 +114,7 @@ export class FalkorDBConnection {
       this.logger.error('Failed to connect to FalkorDB', error);
       return {
         success: false,
-        error: `Failed to connect: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error: toKBError(new Error(`Failed to connect: ${error instanceof Error ? error.message : 'Unknown error'}`), { operation: 'FalkorDBConnection' }),
       };
     }
   }
@@ -133,7 +134,7 @@ export class FalkorDBConnection {
           await this.query(indexQuery);
         } catch (error) {
           // Index might already exist
-          if (!error?.message?.includes('already exists')) {
+          if (!(error instanceof Error && error.message.includes('already exists'))) {
             throw error;
           }
         }
@@ -157,7 +158,7 @@ export class FalkorDBConnection {
     if (!this.isInitialized) {
       return {
         success: false,
-        error: 'Not connected to FalkorDB',
+        error: toKBError(new Error('Not connected to FalkorDB'), { operation: 'FalkorDBConnection' }),
       };
     }
 
@@ -181,7 +182,7 @@ export class FalkorDBConnection {
 
       return {
         success: false,
-        error: `Query failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error: toKBError(new Error(`Query failed: ${error instanceof Error ? error.message : 'Unknown error'}`), { operation: 'FalkorDBConnection' }),
       };
     }
   }
@@ -195,7 +196,7 @@ export class FalkorDBConnection {
     if (!this.isInitialized) {
       return {
         success: false,
-        error: 'Not connected to FalkorDB',
+        error: toKBError(new Error('Not connected to FalkorDB'), { operation: 'FalkorDBConnection' }),
       };
     }
 
@@ -214,7 +215,7 @@ export class FalkorDBConnection {
     } catch (error) {
       return {
         success: false,
-        error: `Transaction failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error: toKBError(new Error(`Transaction failed: ${error instanceof Error ? error.message : 'Unknown error'}`), { operation: 'FalkorDBConnection' }),
       };
     }
   }
@@ -328,7 +329,7 @@ export class FalkorDBConnection {
     } catch (error) {
       return {
         success: false,
-        error: `Export failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error: toKBError(new Error(`Export failed: ${error instanceof Error ? error.message : 'Unknown error'}`), { operation: 'FalkorDBConnection' }),
       };
     }
   }
@@ -353,7 +354,7 @@ export class FalkorDBConnection {
     } catch (error) {
       return {
         success: false,
-        error: `Import failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error: toKBError(new Error(`Import failed: ${error instanceof Error ? error.message : 'Unknown error'}`), { operation: 'FalkorDBConnection' }),
       };
     }
   }

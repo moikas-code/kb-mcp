@@ -6,6 +6,7 @@
 import { EventEmitter } from 'events';
 import { Result } from '../types/index.js';
 import winston from 'winston';
+import { toKBError } from '../types/error-utils.js';
 
 interface MemoryStats {
   heapUsed: number;
@@ -258,7 +259,7 @@ export class MemoryManager extends EventEmitter {
       this.logger.error('Memory cleanup failed', error);
       return {
         success: false,
-        error: `Memory cleanup failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error: toKBError(new Error(`Memory cleanup failed: ${error instanceof Error ? error.message : 'Unknown error'}`), { operation: 'cleanup' }),
       };
     }
   }

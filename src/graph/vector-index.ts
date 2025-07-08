@@ -5,7 +5,8 @@
 
 import { Result } from '../types/index.js';
 import { Node } from './types.js';
-import distance from 'ml-distance';
+import { cosine } from 'ml-distance';
+import { toKBError } from '../types/error-utils.js';
 
 interface VectorIndexConfig {
   dimension: number;
@@ -60,7 +61,7 @@ export class VectorIndex {
     } catch (error) {
       return {
         success: false,
-        error: `Failed to initialize vector index: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error: toKBError(new Error(`Failed to initialize vector index: ${error instanceof Error ? error.message : 'Unknown error'}`), { operation: 'initialize' }),
       };
     }
   }
@@ -72,7 +73,7 @@ export class VectorIndex {
     if (!this.initialized) {
       return {
         success: false,
-        error: 'Vector index not initialized',
+        error: toKBError(new Error('Vector index not initialized'), { operation: 'addVector' }),
       };
     }
 
@@ -103,7 +104,7 @@ export class VectorIndex {
     } catch (error) {
       return {
         success: false,
-        error: `Failed to add vector: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error: toKBError(new Error(`Failed to add vector: ${error instanceof Error ? error.message : 'Unknown error'}`), { operation: 'addVector' }),
       };
     }
   }
@@ -115,7 +116,7 @@ export class VectorIndex {
     if (!this.initialized) {
       return {
         success: false,
-        error: 'Vector index not initialized',
+        error: toKBError(new Error('Vector index not initialized'), { operation: 'removeVector' }),
       };
     }
 
@@ -125,7 +126,7 @@ export class VectorIndex {
       if (index === -1) {
         return {
           success: false,
-          error: 'Vector not found in index',
+          error: toKBError(new Error('Vector not found in index'), { operation: 'removeVector' }),
         };
       }
 
@@ -141,7 +142,7 @@ export class VectorIndex {
     } catch (error) {
       return {
         success: false,
-        error: `Failed to remove vector: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error: toKBError(new Error(`Failed to remove vector: ${error instanceof Error ? error.message : 'Unknown error'}`), { operation: 'removeVector' }),
       };
     }
   }
@@ -157,7 +158,7 @@ export class VectorIndex {
     if (!this.initialized) {
       return {
         success: false,
-        error: 'Vector index not initialized',
+        error: toKBError(new Error('Vector index not initialized'), { operation: 'search' }),
       };
     }
 
@@ -184,7 +185,7 @@ export class VectorIndex {
     } catch (error) {
       return {
         success: false,
-        error: `Vector search failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error: toKBError(new Error(`Vector search failed: ${error instanceof Error ? error.message : 'Unknown error'}`), { operation: 'search' }),
       };
     }
   }
@@ -246,7 +247,7 @@ export class VectorIndex {
       
       for (const vector of batch) {
         const similarity = this.config.metric === 'cosine'
-          ? 1 - distance.cosine(queryEmbedding, vector.embedding)
+          ? 1 - cosine(queryEmbedding, vector.embedding)
           : this.computeEuclideanSimilarity(queryEmbedding, vector.embedding);
 
         if (similarity >= threshold) {
@@ -322,7 +323,7 @@ export class VectorIndex {
     if (!this.initialized) {
       return {
         success: false,
-        error: 'Vector index not initialized',
+        error: toKBError(new Error('Vector index not initialized'), { operation: 'rebuild' }),
       };
     }
 
@@ -344,7 +345,7 @@ export class VectorIndex {
     } catch (error) {
       return {
         success: false,
-        error: `Failed to rebuild index: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error: toKBError(new Error(`Failed to rebuild index: ${error instanceof Error ? error.message : 'Unknown error'}`), { operation: 'rebuild' }),
       };
     }
   }

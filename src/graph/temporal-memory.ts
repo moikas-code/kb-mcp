@@ -10,6 +10,7 @@ import {
   Node, Edge, EdgeType, NodeType, SearchOptions, GraphQueryResult
 } from './types.js';
 import { Result } from '../types/index.js';
+import { toKBError } from '../types/error-utils.js';
 
 export class TemporalMemory implements ITemporalMemory {
   private connection: FalkorDBConnection;
@@ -213,7 +214,7 @@ export class TemporalMemory implements ITemporalMemory {
       
       return {
         success: false,
-        error: 'Node not found',
+        error: toKBError('Node not found', { startNodeId }),
       };
     }
 
@@ -230,7 +231,7 @@ export class TemporalMemory implements ITemporalMemory {
     if (nodeIds.length < 2) {
       return {
         success: false,
-        error: 'At least 2 nodes required for temporal chain',
+        error: toKBError('At least 2 nodes required for temporal chain', { nodeIds }),
       };
     }
 
@@ -342,7 +343,7 @@ export class TemporalMemory implements ITemporalMemory {
     if (!result.data?.[0]) {
       return {
         success: false,
-        error: 'Node not found',
+        error: toKBError('Node not found', { nodeId }),
       };
     }
 
@@ -401,7 +402,7 @@ export class TemporalMemory implements ITemporalMemory {
     if (!result.data?.[0]) {
       return {
         success: false,
-        error: 'Node not found',
+        error: toKBError('Node not found', { nodeId }),
       };
     }
 

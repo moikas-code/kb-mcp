@@ -546,8 +546,7 @@ export async function executeTool(
 /**
  * Extract a summary from the status file
  */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function extractStatusSummary(content: string): any {
+function _extractStatusSummary(content: string): any {
   const lines = content.split('\n');
   const summary: any = {
     components: {},
@@ -587,8 +586,7 @@ function extractStatusSummary(content: string): any {
 /**
  * Extract a summary from the issues file
  */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function extractIssuesSummary(content: string): any {
+function _extractIssuesSummary(content: string): any {
   const lines = content.split('\n');
   const issues: any[] = [];
   

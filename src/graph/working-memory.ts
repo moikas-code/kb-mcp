@@ -10,6 +10,7 @@ import {
   Node, MemoryType, NodeType, SearchOptions, GraphQueryResult
 } from './types.js';
 import { Result } from '../types/index.js';
+import { toKBError } from '../types/error-utils.js';
 
 export class WorkingMemory implements IWorkingMemory {
   private connection: FalkorDBConnection;
@@ -153,7 +154,7 @@ export class WorkingMemory implements IWorkingMemory {
     if (!result.data?.[0]) {
       return {
         success: false,
-        error: 'Node not found in working memory',
+        error: toKBError('Node not found in working memory', { operation: 'promote' }),
       };
     }
 
@@ -318,7 +319,7 @@ export class WorkingMemory implements IWorkingMemory {
     if (!result.data?.[0]) {
       return {
         success: false,
-        error: 'Node not found in working memory',
+        error: toKBError('Node not found in working memory', { operation: 'update' }),
       };
     }
 
@@ -383,7 +384,7 @@ export class WorkingMemory implements IWorkingMemory {
     if (!result.data?.[0]) {
       return {
         success: false,
-        error: 'Node not found in working memory',
+        error: toKBError('Node not found in working memory', { operation: 'reinforce' }),
       };
     }
 
