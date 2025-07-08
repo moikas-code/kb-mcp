@@ -5,7 +5,7 @@
 
 import chalk from 'chalk';
 import ora from 'ora';
-import { AutoUpdater } from '../../updater/index.js';
+import { GitHubAutoUpdater } from '../../updater/github-updater.js';
 import { ConfigManager } from '../../core/config.js';
 import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
@@ -25,7 +25,7 @@ export async function updateCommand(
   action: string,
   options: any
 ): Promise<void> {
-  const updater = new AutoUpdater({
+  const updater = new GitHubAutoUpdater({
     currentVersion: CURRENT_VERSION,
     allowPrerelease: options.prerelease || false,
     autoDownload: false,
@@ -56,7 +56,7 @@ export async function updateCommand(
 /**
  * Check for available updates
  */
-async function checkForUpdates(updater: AutoUpdater): Promise<void> {
+async function checkForUpdates(updater: GitHubAutoUpdater): Promise<void> {
   const spinner = ora('Checking for updates...').start();
 
   try {
@@ -95,7 +95,7 @@ async function checkForUpdates(updater: AutoUpdater): Promise<void> {
 /**
  * Install available update
  */
-async function installUpdate(updater: AutoUpdater, options: any): Promise<void> {
+async function installUpdate(updater: GitHubAutoUpdater, options: any): Promise<void> {
   // First check for updates
   const checkSpinner = ora('Checking for updates...').start();
   

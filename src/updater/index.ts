@@ -11,7 +11,7 @@ import https from 'https';
 import { createHash } from 'crypto';
 import { execSync } from 'child_process';
 import semver from 'semver';
-import { Result } from '@types/index.js';
+import { Result } from '../types/index.js';
 import winston from 'winston';
 
 export interface UpdateInfo {
