@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2025-07-08
+
+### Added
+- **Configurable Backend System**: Users can now choose between file-based and graph-based storage
+- **Backend Management Tools**: New MCP tools for backend switching and health monitoring
+- **Unified Storage Interface**: Common API for both filesystem and graph backends  
+- **Data Migration**: Seamless migration between storage backends
+- **Configuration Management**: YAML-based configuration with `.kbconfig.yaml`
+- **Health Monitoring**: Backend health checks and status reporting
+
+### Enhanced
+- **MCP Tools**: All existing tools now work with both storage backends
+- **Storage Flexibility**: Automatic fallback from graph to filesystem if graph unavailable
+- **User Choice**: Simple file storage (default) or advanced graph features (optional)
+
+### Technical
+- `StorageBackend` interface for unified storage operations
+- `BackendManager` for configuration and switching
+- `FilesystemBackend` and `GraphBackend` implementations
+- Enhanced error handling and status reporting
+
+## [1.0.1] - 2025-07-08
+
+### Fixed
+- Removed false SOC2 compliance claims
+- Added honest security roadmap documentation
+- Updated CLI help text to reflect current capabilities
+
+## [1.0.0] - 2025-07-08
+
 ### Added
 - Initial release of KB-MCP
 - Enterprise-grade knowledge base management system

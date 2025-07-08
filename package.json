@@ -56,7 +56,10 @@
     "node": ">=18.0.0"
   },
   "dependencies": {
-    "commander": "^12.0.0"
+    "commander": "^12.0.0",
+    "glob": "^10.0.0",
+    "gray-matter": "^4.0.3",
+    "js-yaml": "^4.1.0"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

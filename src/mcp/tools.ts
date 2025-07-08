@@ -3,9 +3,9 @@
  */
 
 import { Tool } from '@modelcontextprotocol/sdk/types.js';
-import { KBManager } from './kb-manager.js';
+import { BackendManager } from '@core/backend-manager.js';
 
-export function createTools(_kbManager: KBManager): Tool[] {
+export function createTools(_backendManager: BackendManager): Tool[] {
   return [
     {
       name: 'kb_read',
@@ -100,6 +100,42 @@ export function createTools(_kbManager: KBManager): Tool[] {
         type: 'object',
         properties: {}
       }
+    },
+    {
+      name: 'kb_backend_info',
+      description: 'Get information about the current storage backend and available options',
+      inputSchema: {
+        type: 'object',
+        properties: {}
+      }
+    },
+    {
+      name: 'kb_backend_switch',
+      description: 'Switch between storage backends (filesystem or graph)',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          backend_type: {
+            type: 'string',
+            enum: ['filesystem', 'graph'],
+            description: 'Backend type to switch to'
+          },
+          migrate_data: {
+            type: 'boolean',
+            description: 'Whether to migrate existing data to the new backend',
+            default: false
+          }
+        },
+        required: ['backend_type']
+      }
+    },
+    {
+      name: 'kb_backend_health',
+      description: 'Check the health status of the current storage backend',
+      inputSchema: {
+        type: 'object',
+        properties: {}
+      }
     }
   ];
 }
@@ -110,36 +146,53 @@ export function createTools(_kbManager: KBManager): Tool[] {
 export async function executeTool(
   toolName: string,
   args: any,
-  kbManager: KBManager
+  backendManager: BackendManager
 ): Promise<any> {
+  const backend = backendManager.getBackend();
+  if (!backend) {
+    throw new Error('No storage backend initialized');
+  }
   switch (toolName) {
     case 'kb_read': {
-      const file = await kbManager.readFile(args.path);
+      const result = await backend.readFile(args.path);
+      if (!result.success) {
+        throw new Error(result.error.message);
+      }
       return {
-        path: file.path,
-        content: file.content,
-        metadata: file.metadata
+        path: result.data.path,
+        content: result.data.content,
+        metadata: result.data.metadata,
+        category: result.data.category,
+        size: result.data.size,
+        modified: result.data.modified
       };
     }
 
     case 'kb_list': {
       const directory = args.directory || '';
-      const listing = await kbManager.listDirectory(directory);
-      return listing;
+      const result = await backend.listFiles(directory);
+      if (!result.success) {
+        throw new Error(result.error.message);
+      }
+      return {
+        path: result.data.path,
+        total_files: result.data.total_files,
+        total_size: result.data.total_size,
+        categories: result.data.categories,
+        files: result.data.files.map(f => ({
+          path: f.path,
+          category: f.category,
+          size: f.size,
+          modified: f.modified
+        }))
+      };
     }
 
     case 'kb_update': {
-      // Validate category if creating a new file
-      if (!await kbManager.exists(args.path)) {
-        if (!kbManager.isValidCategory(args.path)) {
-          const categories = kbManager.getCategories();
-          throw new Error(
-            `Invalid category. File must be in one of: ${categories.join(', ')}`
-          );
-        }
+      const result = await backend.writeFile(args.path, args.content, args.metadata);
+      if (!result.success) {
+        throw new Error(result.error.message);
       }
-      
-      await kbManager.writeFile(args.path, args.content);
       return {
         success: true,
         message: `File ${args.path} updated successfully`
@@ -147,7 +200,10 @@ export async function executeTool(
     }
 
     case 'kb_delete': {
-      await kbManager.deleteFile(args.path);
+      const result = await backend.deleteFile(args.path);
+      if (!result.success) {
+        throw new Error(result.error.message);
+      }
       return {
         success: true,
         message: `File ${args.path} deleted successfully`
@@ -155,44 +211,101 @@ export async function executeTool(
     }
 
     case 'kb_search': {
-      const results = await kbManager.search(args.query, args.directory);
+      const options = {
+        limit: args.limit || 20,
+        category: args.category,
+        includeContent: true,
+        fuzzy: args.fuzzy || false
+      };
+      const result = await backend.searchContent(args.query, options);
+      if (!result.success) {
+        throw new Error(result.error.message);
+      }
       return {
         query: args.query,
-        results: results,
-        totalMatches: results.reduce((sum, r) => sum + r.matches.length, 0)
+        total_results: result.data.length,
+        results: result.data.map(r => ({
+          path: r.file.path,
+          category: r.file.category,
+          score: r.score,
+          matches: r.matches,
+          snippet: r.snippet
+        }))
       };
     }
 
     case 'kb_status': {
-      try {
-        const statusFile = await kbManager.readFile('status/OVERALL_STATUS.md');
-        return {
-          content: statusFile.content,
-          metadata: statusFile.metadata,
-          summary: extractStatusSummary(statusFile.content)
-        };
-      } catch (error) {
-        return {
-          error: 'Status file not found',
-          suggestion: 'Check status/OVERALL_STATUS.md'
-        };
+      const result = await backend.getStatus();
+      if (!result.success) {
+        throw new Error(result.error.message);
       }
+      return {
+        overall_completion: result.data.overall_completion,
+        phases: result.data.phases,
+        critical_issues: result.data.critical_issues,
+        last_updated: result.data.last_updated,
+        backend_type: backend.getBackendType()
+      };
     }
 
     case 'kb_issues': {
-      try {
-        const issuesFile = await kbManager.readFile('active/KNOWN_ISSUES.md');
-        return {
-          content: issuesFile.content,
-          metadata: issuesFile.metadata,
-          summary: extractIssuesSummary(issuesFile.content)
-        };
-      } catch (error) {
-        return {
-          error: 'Known issues file not found',
-          suggestion: 'Check active/KNOWN_ISSUES.md'
-        };
+      const result = await backend.getIssues();
+      if (!result.success) {
+        throw new Error(result.error.message);
       }
+      return {
+        total_issues: result.data.length,
+        issues: result.data,
+        by_severity: {
+          critical: result.data.filter(i => i.severity === 'critical').length,
+          high: result.data.filter(i => i.severity === 'high').length,
+          medium: result.data.filter(i => i.severity === 'medium').length,
+          low: result.data.filter(i => i.severity === 'low').length
+        },
+        backend_type: backend.getBackendType()
+      };
+    }
+
+    case 'kb_backend_info': {
+      const availableResult = await backendManager.listAvailableBackends();
+      if (!availableResult.success) {
+        throw new Error(availableResult.error.message);
+      }
+      
+      const currentConfig = backendManager.getCurrentConfig();
+      const currentBackend = backendManager.getBackend();
+      
+      return {
+        current_backend: {
+          type: currentBackend?.getBackendType(),
+          configuration: currentBackend?.getConfiguration()
+        },
+        available_backends: availableResult.data,
+        configuration: currentConfig
+      };
+    }
+
+    case 'kb_backend_switch': {
+      const result = await backendManager.switchBackend(args.backend_type, args.migrate_data);
+      if (!result.success) {
+        throw new Error(result.error.message);
+      }
+      
+      return {
+        success: true,
+        message: `Successfully switched to ${args.backend_type} backend`,
+        migrated_data: args.migrate_data,
+        new_backend: args.backend_type
+      };
+    }
+
+    case 'kb_backend_health': {
+      const result = await backendManager.getBackendHealth();
+      if (!result.success) {
+        throw new Error(result.error.message);
+      }
+      
+      return result.data;
     }
 
     default:

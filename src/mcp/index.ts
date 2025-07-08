@@ -13,7 +13,7 @@ import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
-import { KBManager } from './kb-manager.js';
+import { BackendManager } from '@core/backend-manager.js';
 import { createTools, executeTool } from './tools.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -27,7 +27,7 @@ const SERVER_VERSION = '0.1.0';
 
 class ScriptKBServer {
   private server: Server;
-  private kbManager: KBManager;
+  private backendManager: BackendManager;
 
   constructor() {
     // Get project root from environment or use default
@@ -46,9 +46,9 @@ class ScriptKBServer {
       }
     }
     
-    console.error(`Initializing KB Manager with project root: ${projectRoot}`);
+    console.error(`Initializing Backend Manager with project root: ${projectRoot}`);
     
-    this.kbManager = new KBManager(projectRoot);
+    this.backendManager = new BackendManager(projectRoot);
     this.server = new Server(
       {
         name: SERVER_NAME,
@@ -67,7 +67,7 @@ class ScriptKBServer {
   private setupHandlers() {
     // Handler for listing available tools
     this.server.setRequestHandler(ListToolsRequestSchema, async () => ({
-      tools: createTools(this.kbManager),
+      tools: createTools(this.backendManager),
     }));
 
     // Handler for executing tools
@@ -75,7 +75,7 @@ class ScriptKBServer {
       const { name, arguments: args } = request.params;
       
       try {
-        const result = await executeTool(name, args, this.kbManager);
+        const result = await executeTool(name, args, this.backendManager);
         return {
           content: [
             {
@@ -104,6 +104,17 @@ class ScriptKBServer {
   }
 
   async start() {
+    // Initialize backend manager first
+    console.error('Initializing backend manager...');
+    const initResult = await this.backendManager.initialize();
+    if (!initResult.success) {
+      console.error('Failed to initialize backend manager:', initResult.error.message);
+      process.exit(1);
+    }
+
+    const backend = this.backendManager.getBackend();
+    console.error(`Backend initialized: ${backend?.getBackendType()}`);
+
     const transport = new StdioServerTransport();
     await this.server.connect(transport);
     console.error(`${SERVER_NAME} v${SERVER_VERSION} running on stdio`);
