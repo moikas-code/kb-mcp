@@ -1,0 +1,267 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g., v1.0.0)'
+        required: true
+
+permissions:
+  contents: write
+  packages: write
+  id-token: write
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
+
+      - name: Run security tests
+        run: npm run test:security
+
+      - name: Run compliance tests
+        run: npm run test:compliance
+
+  build:
+    name: Build
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build TypeScript
+        run: npm run build
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  build-binaries:
+    name: Build Binaries
+    needs: build
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux
+            arch: x64
+          - os: ubuntu-latest
+            platform: linux
+            arch: arm64
+          - os: macos-latest
+            platform: darwin
+            arch: x64
+          - os: macos-latest
+            platform: darwin
+            arch: arm64
+          - os: windows-latest
+            platform: win32
+            arch: x64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Build binary
+        run: |
+          npm install -g pkg
+          node scripts/build-binary.js --platform=${{ matrix.platform }} --arch=${{ matrix.arch }}
+
+      - name: Upload binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: kb-mcp-${{ matrix.platform }}-${{ matrix.arch }}
+          path: binaries/kb-mcp-${{ matrix.platform }}-${{ matrix.arch }}*
+
+  publish-npm:
+    name: Publish to NPM
+    needs: [build, build-binaries]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Configure npm
+        run: |
+          npm config set //registry.npmjs.org/:_authToken ${{ secrets.NPM_TOKEN }}
+          npm whoami
+
+      - name: Publish to npm
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  create-release:
+    name: Create GitHub Release
+    needs: [build-binaries, publish-npm]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          echo "# Changelog" > CHANGELOG.md
+          git log --pretty=format:"- %s (%h)" $(git describe --tags --abbrev=0)..HEAD >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo "## Installation" >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo "### NPM" >> CHANGELOG.md
+          echo '```bash' >> CHANGELOG.md
+          echo "npm install -g kb-mcp" >> CHANGELOG.md
+          echo '```' >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo "### Binary Downloads" >> CHANGELOG.md
+          echo "Download the appropriate binary for your platform from the assets below." >> CHANGELOG.md
+
+      - name: Calculate checksums
+        run: |
+          cd artifacts
+          find . -name "kb-mcp-*" -type f | while read file; do
+            sha256sum "$file" > "$file.sha256"
+          done
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.event.inputs.version || github.ref }}
+          name: KB-MCP ${{ github.event.inputs.version || github.ref_name }}
+          body_path: CHANGELOG.md
+          draft: false
+          prerelease: false
+          files: |
+            artifacts/kb-mcp-*/*
+
+  build-docker:
+    name: Build Docker Images
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            moikascode/kb-mcp
+          tags: |
+            type=ref,event=tag
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=sha
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  update-docs:
+    name: Update Documentation
+    needs: create-release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Update installation docs
+        run: |
+          VERSION=${{ github.event.inputs.version || github.ref_name }}
+          echo "Latest version: $VERSION" > docs/LATEST_VERSION.md
+          
+      - name: Commit changes
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add docs/LATEST_VERSION.md || true
+          git commit -m "docs: update latest version to ${{ github.event.inputs.version || github.ref_name }}" || true
+          git push || true

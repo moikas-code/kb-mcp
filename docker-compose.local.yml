@@ -1,0 +1,42 @@
+version: '3.8'
+
+# Minimal setup for local development with graph database
+# Use this when you want to run kb-mcp locally but with graph features
+
+services:
+  falkordb:
+    image: falkordb/falkordb:latest
+    container_name: kb-falkordb-local
+    ports:
+      - "6380:6379"
+    environment:
+      - FALKORDB_PASSWORD=localdev123  # For Local/Dev Use Change For Production
+    volumes:
+      - falkordb-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "localdev123", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: kb-redis-local
+    ports:
+      - "6379:6379"
+    environment:
+      - REDIS_PASSWORD=localdev123  # For Local/Dev Use Change For Production
+    volumes:
+      - redis-data:/data
+    command: redis-server --requirepass localdev123 --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "localdev123", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  falkordb-data:
+    driver: local
+  redis-data:
+    driver: local

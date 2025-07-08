@@ -1,0 +1,58 @@
+# KB Manager Configuration Example
+# Copy this file to .kbconfig.yaml and adjust settings
+
+# Security Configuration
+security:
+  encryption:
+    algorithm: AES-256-GCM
+    # key: <set via KB_ENCRYPTION_KEY environment variable>
+  authentication:
+    providers: [jwt]
+    mfa_required: false
+    session_timeout: 3600
+  rate_limiting:
+    enabled: true
+    max_requests_per_minute: 100
+
+# Compliance Configuration  
+compliance:
+  audit:
+    enabled: true
+    retention_days: 548  # 18 months
+    destinations: [file]
+  gdpr:
+    pii_detection: true
+    anonymization_delay: 24h
+
+# Storage Configuration
+storage:
+  path: ./kb  # Knowledge base directory
+  primary: filesystem
+  encryption_at_rest: false
+  versioning: true
+
+# Monitoring Configuration
+monitoring:
+  logging:
+    level: info
+    format: json
+    destinations: [stdout, file]
+  metrics:
+    enabled: false  # Enable for production
+    provider: prometheus
+
+# Templates for different file types
+templates:
+  guide:
+    frontmatter:
+      type: guide
+      tags: [documentation]
+  api:
+    frontmatter:
+      type: reference
+      tags: [api, technical]
+  meeting:
+    frontmatter:
+      type: note
+      tags: [meeting]
+      attendees: []

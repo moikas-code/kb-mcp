@@ -1,0 +1,67 @@
+# KB-MCP Configuration for Local Graph Database Usage
+# Copy this to .kbconfig.yaml to use graph features locally
+
+# Storage Configuration
+storage:
+  # Use graph backend instead of filesystem
+  backend: graph
+  path: ./kb  # Still used for file attachments/backups
+  
+# Graph Database Configuration  
+graph:
+  # Connection settings for local FalkorDB
+  falkordb:
+    host: localhost
+    port: 6380
+    password: localdev123  # Match docker-compose.local.yml
+    graph_name: kb_local
+    
+  # Redis cache settings
+  redis:
+    host: localhost
+    port: 6379
+    password: localdev123  # Match docker-compose.local.yml
+    
+  # Memory settings
+  memory:
+    # Enable all memory types
+    enable_vector: true
+    enable_temporal: true
+    enable_working: true
+    
+    # Vector search settings
+    vector:
+      embedding_model: Xenova/all-MiniLM-L6-v2  # Local model
+      dimension: 384
+      
+    # Auto-consolidation
+    consolidation:
+      enabled: true
+      threshold: 5
+      interval: 300000  # 5 minutes
+      
+# Security Configuration
+security:
+  encryption:
+    enabled: true
+    algorithm: AES-256-GCM
+    # Generate with: openssl rand -hex 32
+    key: ${KB_ENCRYPTION_KEY}
+  
+# Performance  
+performance:
+  cache:
+    enabled: true
+    ttl: 3600
+  connection_pool:
+    min: 2
+    max: 10
+    
+# Monitoring
+monitoring:
+  metrics:
+    enabled: true
+    port: 9090
+  health_check:
+    enabled: true
+    interval: 30000

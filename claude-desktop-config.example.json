@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "script-kb": {
+      "command": "node",
+      "args": ["/home/moika/code/script/script-kb-mcp/dist/index.js"],
+      "env": {
+        "SCRIPT_PROJECT_ROOT": "/home/moika/code/script"
+      }
+    }
+  }
+}

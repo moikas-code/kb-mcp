@@ -1,0 +1,146 @@
+version: '3.8'
+
+services:
+  kb-mcp:
+    image: moikascode/kb-mcp:latest
+    container_name: kb-mcp
+    restart: unless-stopped
+    environment:
+      # Core configuration
+      - NODE_ENV=production
+      - KB_STORAGE_PATH=/data/kb
+      - KB_LOG_PATH=/data/logs
+      - KB_CONFIG_PATH=/data/config/kbconfig.yaml
+      
+      # Security settings
+      - KB_ENCRYPTION_KEY=${KB_ENCRYPTION_KEY}
+      - KB_JWT_SECRET=${KB_JWT_SECRET}
+      - KB_MFA_REQUIRED=true
+      
+      # Database connection
+      - FALKORDB_HOST=falkordb
+      - FALKORDB_PORT=6379
+      - FALKORDB_PASSWORD=${FALKORDB_PASSWORD}
+      
+      # Redis cache
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      
+      # Monitoring
+      - ENABLE_METRICS=true
+      - ENABLE_TRACING=true
+    volumes:
+      - kb-data:/data/kb
+      - kb-logs:/data/logs
+      - ./config:/data/config:ro
+    ports:
+      - "3000:3000"
+    networks:
+      - kb-network
+    depends_on:
+      - falkordb
+      - redis
+    healthcheck:
+      test: ["CMD", "node", "dist/monitoring/health.js"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  falkordb:
+    image: falkordb/falkordb:latest
+    container_name: kb-falkordb
+    restart: unless-stopped
+    environment:
+      - FALKORDB_PASSWORD=${FALKORDB_PASSWORD}
+    volumes:
+      - falkordb-data:/data
+    ports:
+      - "6380:6379"
+    networks:
+      - kb-network
+    command: redis-server --requirepass ${FALKORDB_PASSWORD}
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${FALKORDB_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: kb-redis
+    restart: unless-stopped
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+    volumes:
+      - redis-data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - kb-network
+    command: redis-server --requirepass ${REDIS_PASSWORD} --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Optional: Prometheus for metrics
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: kb-prometheus
+    restart: unless-stopped
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - kb-network
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    profiles:
+      - monitoring
+
+  # Optional: Grafana for dashboards
+  grafana:
+    image: grafana/grafana:latest
+    container_name: kb-grafana
+    restart: unless-stopped
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    ports:
+      - "3001:3000"
+    networks:
+      - kb-network
+    depends_on:
+      - prometheus
+    profiles:
+      - monitoring
+
+volumes:
+  kb-data:
+    driver: local
+  kb-logs:
+    driver: local
+  falkordb-data:
+    driver: local
+  redis-data:
+    driver: local
+  prometheus-data:
+    driver: local
+  grafana-data:
+    driver: local
+
+networks:
+  kb-network:
+    driver: bridge

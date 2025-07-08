@@ -1,0 +1,80 @@
+# Source files
+src/
+*.ts
+!dist/**/*.d.ts
+
+# Development files
+.github/
+scripts/
+docs/
+examples/
+test/
+tests/
+__tests__/
+*.test.ts
+*.spec.ts
+
+# Configuration files
+.env
+.env.*
+!.env.example
+.eslintrc*
+.prettierrc*
+jest.config.*
+tsconfig.json
+docker-compose.yml
+Dockerfile*
+
+# Build artifacts
+*.tsbuildinfo
+binaries/
+
+# Logs
+*.log
+logs/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Git files
+.git/
+.gitignore
+
+# CI/CD
+.travis.yml
+.circleci/
+.gitlab-ci.yml
+
+# Documentation source
+*.md
+!README.md
+!LICENSE
+
+# Development scripts
+install.sh
+test-mcp.sh
+
+# Monitoring configs
+monitoring/
+prometheus.yml
+grafana/
+
+# Temporary files
+*.tmp
+*.temp
+tmp/
+temp/
+
+# Coverage
+coverage/
+.nyc_output/
+
+# Node modules (redundant but explicit)
+node_modules/
