@@ -10,7 +10,8 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import os from 'os';
 import crypto from 'crypto';
-import { ConfigManager } from '@core/config.js';
+import { ConfigManager } from '../../core/config.js';
+import { DockerManager } from '../../core/docker-manager.js';
 
 interface DBStatus {
   running: boolean;
@@ -73,45 +74,32 @@ async function startDatabase(options: any): Promise<void> {
       return;
     }
 
-    // Get project identifier
-    const projectId = await getProjectId();
-    const projectName = `kb_${projectId}`;
-    
-    spinner.text = 'Checking existing containers...';
-    
-    // Check if already running
-    const status = await getDBStatus(projectName);
-    if (status.running && status.containers.falkordb && status.containers.redis) {
-      spinner.succeed('Database is already running');
-      await displayConnectionInfo(projectName);
-      return;
-    }
-
-    // Create project-specific docker-compose
-    const composeFile = await createProjectCompose(projectName);
+    const dockerManager = new DockerManager();
     
     spinner.text = 'Starting database containers...';
     
-    // Start containers
-    const dockerComposeCmd = getDockerComposeCommand();
-    execSync(`${dockerComposeCmd} -f ${composeFile} -p ${projectName} up -d`, {
-      stdio: 'ignore'
-    });
+    const result = await dockerManager.startDatabase(process.cwd());
     
-    // Wait for health checks
-    spinner.text = 'Waiting for databases to be ready...';
-    await waitForDatabases(projectName);
-    
-    // Update configuration
-    await updateConfigForGraph(projectName);
+    if (!result.success) {
+      spinner.fail(`Failed to start database: ${result.error.message}`);
+      process.exit(1);
+    }
     
     spinner.succeed('Database started successfully');
     
     // Display connection info
-    await displayConnectionInfo(projectName);
-    
-    // Save state
-    await saveDBState(projectName, 'running');
+    const status = result.data;
+    console.log('\n' + chalk.bold('Connection Information:'));
+    console.log(chalk.gray('─'.repeat(40)));
+    console.log('FalkorDB:');
+    console.log('  Host:', chalk.cyan('localhost'));
+    console.log('  Port:', chalk.cyan(status.ports.falkordb));
+    console.log('  Password:', chalk.cyan(`dev_${status.projectId}`));
+    console.log('\nRedis:');
+    console.log('  Host:', chalk.cyan('localhost'));
+    console.log('  Port:', chalk.cyan(status.ports.redis));
+    console.log('  Password:', chalk.cyan(`dev_${status.projectId}`));
+    console.log('\n' + chalk.gray('These settings have been saved to your .kbconfig.yaml'));
     
   } catch (error) {
     spinner.fail(`Failed to start database: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -126,16 +114,14 @@ async function stopDatabase(options: any): Promise<void> {
   const spinner = ora('Stopping database...').start();
   
   try {
-    const projectId = await getProjectId();
-    const projectName = `kb_${projectId}`;
-    const composeFile = getProjectComposeFile(projectName);
+    const dockerManager = new DockerManager();
     
-    const dockerComposeCmd = getDockerComposeCommand();
-    execSync(`${dockerComposeCmd} -f ${composeFile} -p ${projectName} down`, {
-      stdio: 'ignore'
-    });
+    const result = await dockerManager.stopDatabase(process.cwd());
     
-    await saveDBState(projectName, 'stopped');
+    if (!result.success) {
+      spinner.fail(`Failed to stop database: ${result.error.message}`);
+      return;
+    }
     
     spinner.succeed('Database stopped');
   } catch (error) {
@@ -148,33 +134,45 @@ async function stopDatabase(options: any): Promise<void> {
  */
 async function showStatus(options: any): Promise<void> {
   try {
-    const projectId = await getProjectId();
-    const projectName = `kb_${projectId}`;
-    const status = await getDBStatus(projectName);
+    const dockerManager = new DockerManager();
+    
+    const statusResult = await dockerManager.getProjectStatus(process.cwd());
+    
+    if (!statusResult.success) {
+      console.error(chalk.red('Failed to get status:'), statusResult.error.message);
+      return;
+    }
+    
+    const status = statusResult.data;
     
     console.log(chalk.bold('\nDatabase Status'));
     console.log(chalk.gray('─'.repeat(40)));
     console.log('Project:', chalk.cyan(path.basename(process.cwd())));
-    console.log('Project ID:', chalk.cyan(projectId));
-    console.log('Status:', status.running ? chalk.green('Running') : chalk.red('Stopped'));
+    console.log('Project ID:', chalk.cyan(status.projectId));
+    console.log('Status:', status.status === 'running' ? chalk.green('Running') : 
+                status.status === 'partial' ? chalk.yellow('Partial') : chalk.red('Stopped'));
     
-    if (status.running) {
+    if (status.status !== 'stopped') {
       console.log('\nContainers:');
-      console.log('  FalkorDB:', status.containers.falkordb ? chalk.green('✓') : chalk.red('✗'));
-      console.log('  Redis:', status.containers.redis ? chalk.green('✓') : chalk.red('✗'));
+      console.log('  FalkorDB:', status.containers.falkordb.status === 'running' ? chalk.green('✓') : chalk.red('✗'));
+      console.log('  Redis:', status.containers.redis.status === 'running' ? chalk.green('✓') : chalk.red('✗'));
       
       console.log('\nPorts:');
-      console.log('  FalkorDB:', chalk.cyan(`localhost:${status.port.falkordb}`));
-      console.log('  Redis:', chalk.cyan(`localhost:${status.port.redis}`));
+      console.log('  FalkorDB:', chalk.cyan(`localhost:${status.ports.falkordb}`));
+      console.log('  Redis:', chalk.cyan(`localhost:${status.ports.redis}`));
     }
     
     // Show all KB projects with databases
     console.log('\n' + chalk.bold('Other KB Projects:'));
-    const allProjects = await getAllKBProjects();
-    for (const project of allProjects) {
-      if (project.id !== projectId) {
-        const projectStatus = await getDBStatus(`kb_${project.id}`);
-        console.log(`  ${project.name}: ${projectStatus.running ? chalk.green('running') : chalk.gray('stopped')}`);
+    const allProjectsResult = await dockerManager.listProjects();
+    if (allProjectsResult.success) {
+      for (const project of allProjectsResult.data) {
+        if (project.projectId !== status.projectId) {
+          const projectName = path.basename(project.projectPath);
+          const projectStatus = project.status === 'running' ? chalk.green('running') : 
+                              project.status === 'partial' ? chalk.yellow('partial') : chalk.gray('stopped');
+          console.log(`  ${projectName}: ${projectStatus}`);
+        }
       }
     }
     
@@ -190,15 +188,14 @@ async function resetDatabase(options: any): Promise<void> {
   const spinner = ora('Resetting database...').start();
   
   try {
-    const projectId = await getProjectId();
-    const projectName = `kb_${projectId}`;
-    const composeFile = getProjectComposeFile(projectName);
+    const dockerManager = new DockerManager();
     
-    // Stop and remove with volumes
-    const dockerComposeCmd = getDockerComposeCommand();
-    execSync(`${dockerComposeCmd} -f ${composeFile} -p ${projectName} down -v`, {
-      stdio: 'ignore'
-    });
+    const result = await dockerManager.resetDatabase(process.cwd());
+    
+    if (!result.success) {
+      spinner.fail(`Failed to reset database: ${result.error.message}`);
+      return;
+    }
     
     spinner.succeed('Database reset complete');
     
@@ -217,29 +214,17 @@ async function resetDatabase(options: any): Promise<void> {
  */
 async function showLogs(options: any): Promise<void> {
   try {
-    const projectId = await getProjectId();
-    const projectName = `kb_${projectId}`;
-    const composeFile = getProjectComposeFile(projectName);
+    const dockerManager = new DockerManager();
     
-    const service = options.service || 'all';
-    const follow = options.follow ? '-f' : '';
-    const tail = options.tail ? `--tail ${options.tail}` : '--tail 100';
+    const service = options.service === 'all' ? undefined : options.service;
+    const result = await dockerManager.getLogs(process.cwd(), service);
     
-    const dockerComposeCmd = getDockerComposeCommand();
-    const cmd = service === 'all'
-      ? `${dockerComposeCmd} -f ${composeFile} -p ${projectName} logs ${follow} ${tail}`
-      : `${dockerComposeCmd} -f ${composeFile} -p ${projectName} logs ${follow} ${tail} ${service}`;
+    if (!result.success) {
+      console.error(chalk.red('Failed to get logs:'), result.error.message);
+      return;
+    }
     
-    // Use spawn for streaming logs
-    const proc = spawn(cmd, [], {
-      shell: true,
-      stdio: 'inherit'
-    });
-    
-    process.on('SIGINT', () => {
-      proc.kill();
-      process.exit(0);
-    });
+    console.log(result.data);
     
   } catch (error) {
     console.error(chalk.red('Failed to show logs:'), error);

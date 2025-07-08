@@ -5,8 +5,8 @@
 
 import chalk from 'chalk';
 import ora from 'ora';
-import { ConfigManager } from '@core/config.js';
-import { startMCPServer, SecureMCPServerOptions } from '@mcp/secure-server.js';
+import { ConfigManager } from '../../core/config.js';
+import { startMCPServer, SecureMCPServerOptions } from '../../mcp/secure-server.js';
 
 export async function serveCommand(
   options: any,

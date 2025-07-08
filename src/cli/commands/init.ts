@@ -9,9 +9,9 @@ import chalk from 'chalk';
 import ora from 'ora';
 import inquirer from 'inquirer';
 import simpleGit from 'simple-git';
-import { ConfigManager } from '@core/config.js';
-import { SecureKBManager } from '@core/secure-kb-manager.js';
-import { EncryptionService } from '@core/security.js';
+import { ConfigManager } from '../../core/config.js';
+import { SecureKBManager } from '../../core/secure-kb-manager.js';
+import { EncryptionService } from '../../core/security.js';
 
 export async function initCommand(
   options: any,

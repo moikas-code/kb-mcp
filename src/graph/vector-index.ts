@@ -3,9 +3,9 @@
  * Efficient similarity search using FAISS or in-memory indexing
  */
 
-import { Result } from '@types/index.js';
+import { Result } from '../types/index.js';
 import { Node } from './types.js';
-import { cosineDistance } from 'ml-distance';
+import distance from 'ml-distance';
 
 interface VectorIndexConfig {
   dimension: number;
@@ -246,7 +246,7 @@ export class VectorIndex {
       
       for (const vector of batch) {
         const similarity = this.config.metric === 'cosine'
-          ? 1 - cosineDistance(queryEmbedding, vector.embedding)
+          ? 1 - distance.cosine(queryEmbedding, vector.embedding)
           : this.computeEuclideanSimilarity(queryEmbedding, vector.embedding);
 
         if (similarity >= threshold) {

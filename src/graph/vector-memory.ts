@@ -4,14 +4,14 @@
  */
 
 import { pipeline, Pipeline } from '@xenova/transformers';
-import { cosineDistance } from 'ml-distance';
+// Import not needed - using vector index instead
 import { IVectorMemory } from './interfaces.js';
 import { FalkorDBConnection } from './connection.js';
 import { VectorIndex } from './vector-index.js';
 import {
   Node, SearchOptions, GraphQueryResult, NodeType
 } from './types.js';
-import { Result } from '@types/index.js';
+import { Result } from '../types/index.js';
 
 export class VectorMemory implements IVectorMemory {
   private connection: FalkorDBConnection;

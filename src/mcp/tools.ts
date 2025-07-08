@@ -3,7 +3,7 @@
  */
 
 import { Tool } from '@modelcontextprotocol/sdk/types.js';
-import { BackendManager } from '@core/backend-manager.js';
+import { BackendManager } from '../core/backend-manager.js';
 
 export function createTools(_backendManager: BackendManager): Tool[] {
   return [
@@ -135,6 +135,106 @@ export function createTools(_backendManager: BackendManager): Tool[] {
       inputSchema: {
         type: 'object',
         properties: {}
+      }
+    },
+    {
+      name: 'kb_create',
+      description: 'Create a new file in the knowledge base (alias for kb_update)',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          path: {
+            type: 'string',
+            description: 'Path to the file relative to kb/ directory'
+          },
+          content: {
+            type: 'string',
+            description: 'Content to write to the file (markdown format)'
+          }
+        },
+        required: ['path', 'content']
+      }
+    },
+    {
+      name: 'kb_semantic_search',
+      description: 'Perform semantic search using vector embeddings (graph backend only)',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          query: {
+            type: 'string',
+            description: 'Natural language query for semantic search'
+          },
+          limit: {
+            type: 'number',
+            description: 'Maximum number of results to return',
+            default: 10
+          },
+          threshold: {
+            type: 'number',
+            description: 'Similarity threshold (0-1)',
+            default: 0.7
+          }
+        },
+        required: ['query']
+      }
+    },
+    {
+      name: 'kb_graph_query',
+      description: 'Execute a custom graph query using Cypher syntax (graph backend only)',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          cypher: {
+            type: 'string',
+            description: 'Cypher query to execute'
+          },
+          params: {
+            type: 'object',
+            description: 'Parameters for the query',
+            default: {}
+          }
+        },
+        required: ['cypher']
+      }
+    },
+    {
+      name: 'kb_export',
+      description: 'Export knowledge base data for backup or migration',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          format: {
+            type: 'string',
+            enum: ['json', 'yaml'],
+            description: 'Export format',
+            default: 'json'
+          },
+          include_metadata: {
+            type: 'boolean',
+            description: 'Include file metadata in export',
+            default: true
+          }
+        }
+      }
+    },
+    {
+      name: 'kb_import',
+      description: 'Import knowledge base data from backup',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          data: {
+            type: 'string',
+            description: 'JSON or YAML data to import'
+          },
+          overwrite: {
+            type: 'boolean',
+            description: 'Whether to overwrite existing files',
+            default: false
+          }
+        },
+        required: ['data']
       }
     }
   ];
@@ -308,6 +408,136 @@ export async function executeTool(
       return result.data;
     }
 
+    case 'kb_create': {
+      // kb_create is an alias for kb_update
+      const result = await backend.writeFile(args.path, args.content, args.metadata);
+      if (!result.success) {
+        throw new Error(result.error.message);
+      }
+      return {
+        success: true,
+        message: `File ${args.path} created successfully`
+      };
+    }
+
+    case 'kb_semantic_search': {
+      // Check if current backend supports semantic search
+      if (backend.getBackendType() !== 'graph') {
+        throw new Error('Semantic search requires graph backend. Use kb_backend_switch to switch to graph backend.');
+      }
+      
+      const options = {
+        limit: args.limit || 10,
+        includeContent: true
+      };
+      
+      const result = await backend.searchContent(args.query, options);
+      if (!result.success) {
+        throw new Error(result.error.message);
+      }
+      
+      return {
+        query: args.query,
+        search_type: 'semantic',
+        threshold: args.threshold || 0.7,
+        total_results: result.data.length,
+        results: result.data.map(r => ({
+          path: r.file.path,
+          category: r.file.category,
+          score: r.score,
+          matches: r.matches,
+          snippet: r.snippet,
+          semantic_similarity: r.score
+        }))
+      };
+    }
+
+    case 'kb_graph_query': {
+      // Check if current backend supports graph queries
+      if (backend.getBackendType() !== 'graph') {
+        throw new Error('Graph queries require graph backend. Use kb_backend_switch to switch to graph backend.');
+      }
+      
+      // For safety, only allow read-only queries
+      const cypher = args.cypher.trim().toLowerCase();
+      if (!cypher.startsWith('match') && !cypher.startsWith('return') && !cypher.startsWith('call db.')) {
+        throw new Error('Only read-only graph queries are allowed (MATCH, RETURN, CALL db.*)');
+      }
+      
+      try {
+        // Access the graph backend directly
+        const graphBackend = backend as any;
+        if (!graphBackend.memory || !graphBackend.memory.graph) {
+          throw new Error('Graph backend not properly initialized');
+        }
+        
+        const result = await graphBackend.memory.graph.query(args.cypher, args.params || {});
+        if (!result.success) {
+          throw new Error(result.error);
+        }
+        
+        return {
+          cypher: args.cypher,
+          params: args.params || {},
+          result_count: result.data ? result.data.length : 0,
+          results: result.data
+        };
+      } catch (error) {
+        throw new Error(`Graph query failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+    }
+
+    case 'kb_export': {
+      const result = await backend.exportData();
+      if (!result.success) {
+        throw new Error(result.error.message);
+      }
+      
+      let exportData: string;
+      if (args.format === 'yaml') {
+        const yaml = require('js-yaml');
+        exportData = yaml.dump(result.data, { indent: 2 });
+      } else {
+        exportData = JSON.stringify(result.data, null, 2);
+      }
+      
+      return {
+        format: args.format || 'json',
+        exported_at: new Date().toISOString(),
+        total_files: result.data.files.length,
+        total_size: result.data.metadata.total_size,
+        backend_type: result.data.backend_type,
+        data: exportData
+      };
+    }
+
+    case 'kb_import': {
+      let importData: any;
+      try {
+        if (args.data.trim().startsWith('{')) {
+          importData = JSON.parse(args.data);
+        } else {
+          const yaml = require('js-yaml');
+          importData = yaml.load(args.data);
+        }
+      } catch (error) {
+        throw new Error('Invalid import data format. Must be valid JSON or YAML.');
+      }
+      
+      const result = await backend.importData(importData);
+      if (!result.success) {
+        throw new Error(result.error.message);
+      }
+      
+      return {
+        success: true,
+        message: 'Data imported successfully',
+        imported_files: importData.files ? importData.files.length : 0,
+        backend_type: importData.backend_type,
+        overwrite: args.overwrite || false
+      };
+    }
+
     default:
       throw new Error(`Unknown tool: ${toolName}`);
   }
@@ -316,6 +546,7 @@ export async function executeTool(
 /**
  * Extract a summary from the status file
  */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function extractStatusSummary(content: string): any {
   const lines = content.split('\n');
   const summary: any = {
@@ -356,6 +587,7 @@ function extractStatusSummary(content: string): any {
 /**
  * Extract a summary from the issues file
  */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function extractIssuesSummary(content: string): any {
   const lines = content.split('\n');
   const issues: any[] = [];

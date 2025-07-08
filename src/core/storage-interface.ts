@@ -3,8 +3,8 @@
  * Provides a common interface for both file-based and graph-based storage
  */
 
-import { KBFile, KBDirectory, SearchResult, KBCategory } from './types.js';
-import { Result } from '@types/index.js';
+import { KBFile, KBDirectory, SearchResult, KBCategory, ImplementationStatus, KnownIssue, BackendExport } from './types.js';
+import { Result } from '../types/index.js';
 
 export interface StorageBackend {
   /**
@@ -78,47 +78,6 @@ export interface SearchOptions {
   category?: KBCategory;
   includeContent?: boolean;
   fuzzy?: boolean;
-}
-
-export interface ImplementationStatus {
-  overall_completion: number;
-  phases: Array<{
-    name: string;
-    status: 'completed' | 'in_progress' | 'pending' | 'blocked';
-    completion: number;
-    notes?: string;
-  }>;
-  critical_issues: number;
-  last_updated: string;
-}
-
-export interface KnownIssue {
-  id: string;
-  title: string;
-  description: string;
-  severity: 'critical' | 'high' | 'medium' | 'low';
-  category: string;
-  status: 'open' | 'in_progress' | 'resolved';
-  created_at: string;
-  updated_at: string;
-}
-
-export interface BackendExport {
-  backend_type: 'filesystem' | 'graph';
-  version: string;
-  exported_at: string;
-  files: Array<{
-    path: string;
-    content: string;
-    metadata: Record<string, any>;
-    created_at?: string;
-    updated_at?: string;
-  }>;
-  metadata: {
-    total_files: number;
-    total_size: number;
-    categories: KBCategory[];
-  };
 }
 
 export interface BackendConfig {

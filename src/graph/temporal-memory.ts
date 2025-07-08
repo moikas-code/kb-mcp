@@ -9,7 +9,7 @@ import { FalkorDBConnection } from './connection.js';
 import {
   Node, Edge, EdgeType, NodeType, SearchOptions, GraphQueryResult
 } from './types.js';
-import { Result } from '@types/index.js';
+import { Result } from '../types/index.js';
 
 export class TemporalMemory implements ITemporalMemory {
   private connection: FalkorDBConnection;

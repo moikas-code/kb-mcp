@@ -4,7 +4,7 @@
  */
 
 import { Node, Edge, NodeType, EdgeType, MemoryType, SearchOptions, GraphQueryResult } from './types.js';
-import { Result } from '@types/index.js';
+import { Result } from '../types/index.js';
 
 /**
  * Base memory interface

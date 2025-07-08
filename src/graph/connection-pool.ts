@@ -5,7 +5,7 @@
 
 import { Pool, createPool } from 'generic-pool';
 import { FalkorDB } from 'falkordb';
-import { Result } from '@types/index.js';
+import { Result } from '../types/index.js';
 import winston from 'winston';
 
 export interface ConnectionPoolConfig {
@@ -325,8 +325,8 @@ export class FalkorDBConnectionPool {
       password: this.config.password,
     });
 
-    // Test connection
-    await client.ping();
+    // Test connection by connecting
+    await client.connect();
     
     // Get graph instance
     const graph = client.selectGraph(this.config.graph_name);
@@ -351,7 +351,7 @@ export class FalkorDBConnectionPool {
    */
   private async destroyConnection(connection: PooledConnection): Promise<void> {
     try {
-      await connection.client.quit();
+      await connection.client.close();
       
       this.logger.debug('Connection destroyed', {
         connection_id: connection.created_at.toISOString(),
@@ -368,8 +368,8 @@ export class FalkorDBConnectionPool {
    */
   private async validateConnection(connection: PooledConnection): Promise<boolean> {
     try {
-      // Test with a simple ping
-      await connection.client.ping();
+      // Test with a simple query
+      await connection.graph.query('RETURN 1');
       return true;
     } catch (error) {
       this.logger.warn('Connection validation failed', {

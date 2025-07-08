@@ -42,6 +42,15 @@
       "@graph/*": ["./graph/*"]
     }
   },
-  "include": ["src/cli/simple-cli.ts", "src/types/simple.ts", "src/index.ts"],
+  "include": [
+    "src/mcp/index.ts",
+    "src/mcp/tools.ts",
+    "src/core/backend-manager.ts",
+    "src/core/filesystem-backend.ts", 
+    "src/core/storage-interface.ts",
+    "src/types/**/*",
+    "src/cli/simple-cli.ts",
+    "src/index.ts"
+  ],
   "exclude": ["node_modules", "dist", "**/*.test.ts", "**/*.spec.ts"]
 }

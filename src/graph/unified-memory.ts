@@ -11,12 +11,12 @@ import { VectorMemory } from './vector-memory.js';
 import { TemporalMemory } from './temporal-memory.js';
 import { WorkingMemory } from './working-memory.js';
 import { FalkorDBConnection, FalkorDBConfig } from './connection.js';
-import { MemoryManager } from '@monitoring/memory-manager.js';
+import { MemoryManager } from '../monitoring/memory-manager.js';
 import {
   Node, NodeType, EdgeType, MemoryType, SearchOptions, 
   GraphQueryResult, InsightNode, FactNode
 } from './types.js';
-import { Result } from '@types/index.js';
+import { Result } from '../types/index.js';
 import { GRAPH_SCHEMA } from './schema.js';
 
 export interface UnifiedMemoryConfig extends FalkorDBConfig {

@@ -9,7 +9,7 @@ import { FalkorDBConnection } from './connection.js';
 import {
   Node, MemoryType, NodeType, SearchOptions, GraphQueryResult
 } from './types.js';
-import { Result } from '@types/index.js';
+import { Result } from '../types/index.js';
 
 export class WorkingMemory implements IWorkingMemory {
   private connection: FalkorDBConnection;

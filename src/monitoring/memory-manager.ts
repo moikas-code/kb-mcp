@@ -4,7 +4,7 @@
  */
 
 import { EventEmitter } from 'events';
-import { Result } from '@types/index.js';
+import { Result } from '../types/index.js';
 import winston from 'winston';
 
 interface MemoryStats {

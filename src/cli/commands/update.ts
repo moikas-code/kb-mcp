@@ -5,8 +5,8 @@
 
 import chalk from 'chalk';
 import ora from 'ora';
-import { AutoUpdater } from '@updater/index.js';
-import { ConfigManager } from '@core/config.js';
+import { AutoUpdater } from '../../updater/index.js';
+import { ConfigManager } from '../../core/config.js';
 import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';

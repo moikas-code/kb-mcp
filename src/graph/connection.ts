@@ -4,7 +4,7 @@
  */
 
 import { FalkorDB } from 'falkordb';
-import { Result } from '@types/index.js';
+import { Result } from '../types/index.js';
 import { GRAPH_SCHEMA } from './schema.js';
 import { FalkorDBConnectionPool } from './connection-pool.js';
 import winston from 'winston';
@@ -122,7 +122,7 @@ export class FalkorDBConnection {
    * Initialize graph schema
    */
   private async initializeSchema(): Promise<void> {
-    if (!this.client) {
+    if (!this.isInitialized) {
       throw new Error('Not connected to FalkorDB');
     }
 

@@ -3,11 +3,11 @@
  * Implements graph-based storage using FalkorDB for advanced AI features
  */
 
-import { UnifiedMemory, UnifiedMemoryConfig } from '@graph/index.js';
-import { Node, NodeType, GraphQueryResult } from '@graph/types.js';
-import { StorageBackend, SearchOptions, ImplementationStatus, KnownIssue, BackendExport, BackendConfig } from './storage-interface.js';
-import { KBFile, KBDirectory, SearchResult, KBCategory, KB_CATEGORIES } from './types.js';
-import { Result } from '@types/index.js';
+import { UnifiedMemory, UnifiedMemoryConfig } from '../graph/index.js';
+import { NodeType, DocumentNode, MemoryNode } from '../graph/types.js';
+import { StorageBackend, SearchOptions, BackendConfig } from './storage-interface.js';
+import { KBFile, KBDirectory, SearchResult, KBCategory, KB_CATEGORIES, ImplementationStatus, KnownIssue, BackendExport } from './types.js';
+import { Result } from '../types/index.js';
 
 export class GraphBackend implements StorageBackend {
   private memory: UnifiedMemory;
@@ -19,26 +19,18 @@ export class GraphBackend implements StorageBackend {
     }
 
     const memoryConfig: UnifiedMemoryConfig = {
-      connection: {
-        host: config.graph?.connection.host || 'localhost',
-        port: config.graph?.connection.port || 6380,
-        password: config.graph?.connection.password,
-        database: config.graph?.connection.database || 'kb_graph'
-      },
-      vector: {
-        dimensions: config.graph?.vector_dimensions || 1536,
-        similarity_threshold: 0.8,
-        max_results: 50
-      },
-      temporal: {
-        enable_time_queries: config.graph?.enable_temporal_queries ?? true,
-        retention_days: 365
-      },
-      working_memory: {
-        max_context_size: 10000,
-        context_window: 4000,
-        update_threshold: 0.1
-      }
+      host: config.graph?.connection.host || 'localhost',
+      port: config.graph?.connection.port || 6380,
+      password: config.graph?.connection.password,
+      graph_name: config.graph?.connection.database || 'kb_graph',
+      max_connections: 10,
+      connection_timeout: 5000,
+      query_timeout: 30000,
+      embedding_model: 'Xenova/all-MiniLM-L6-v2',
+      enable_auto_consolidation: true,
+      consolidation_threshold: 5,
+      contradiction_detection: true,
+      insight_generation: true
     };
 
     this.memory = new UnifiedMemory(memoryConfig);
@@ -77,7 +69,7 @@ export class GraphBackend implements StorageBackend {
         await this.memory.graph.query(query, {});
       } catch (error) {
         // Index might already exist, ignore
-        console.warn(`Schema setup warning: ${error.message}`);
+        console.warn(`Schema setup warning: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
     }
   }
@@ -130,7 +122,7 @@ export class GraphBackend implements StorageBackend {
           status: 'unhealthy',
           details: {
             backend_type: 'graph',
-            error: error.message
+            error: error instanceof Error ? error.message : 'Unknown error'
           }
         }
       };
@@ -217,7 +209,7 @@ export class GraphBackend implements StorageBackend {
         success: false,
         error: {
           name: 'GraphReadError',
-          message: `Failed to read file ${filePath}: ${error.message}`,
+          message: `Failed to read file ${filePath}: ${error instanceof Error ? error.message : 'Unknown error'}`,
           code: 'GRAPH_READ_FAILED',
           statusCode: 500,
           isOperational: true
@@ -268,7 +260,7 @@ export class GraphBackend implements StorageBackend {
 
       // Store in vector memory for semantic search if enabled
       if (this.config.graph?.enable_semantic_search) {
-        await this.memory.vector.store(filePath, content, {
+        await this.memory.vector.store(content, {
           category,
           path: filePath,
           modified: now
@@ -281,7 +273,7 @@ export class GraphBackend implements StorageBackend {
         success: false,
         error: {
           name: 'GraphWriteError',
-          message: `Failed to write file ${filePath}: ${error.message}`,
+          message: `Failed to write file ${filePath}: ${error instanceof Error ? error.message : 'Unknown error'}`,
           code: 'GRAPH_WRITE_FAILED',
           statusCode: 500,
           isOperational: true
@@ -312,7 +304,7 @@ export class GraphBackend implements StorageBackend {
 
       // Remove from vector memory
       if (this.config.graph?.enable_semantic_search) {
-        await this.memory.vector.delete(filePath);
+        await this.memory.vector.forget(filePath);
       }
 
       return { success: true, data: undefined };
@@ -321,7 +313,7 @@ export class GraphBackend implements StorageBackend {
         success: false,
         error: {
           name: 'GraphDeleteError',
-          message: `Failed to delete file ${filePath}: ${error.message}`,
+          message: `Failed to delete file ${filePath}: ${error instanceof Error ? error.message : 'Unknown error'}`,
           code: 'GRAPH_DELETE_FAILED',
           statusCode: 500,
           isOperational: true
@@ -401,7 +393,7 @@ export class GraphBackend implements StorageBackend {
         success: false,
         error: {
           name: 'GraphListError',
-          message: `Failed to list files: ${error.message}`,
+          message: `Failed to list files: ${error instanceof Error ? error.message : 'Unknown error'}`,
           code: 'GRAPH_LIST_FAILED',
           statusCode: 500,
           isOperational: true
@@ -412,33 +404,35 @@ export class GraphBackend implements StorageBackend {
 
   async searchContent(query: string, options: SearchOptions = {}): Promise<Result<SearchResult[]>> {
     try {
-      const { limit = 50, category, includeContent = true } = options;
+      const { limit = 50, category } = options;
 
       let results: SearchResult[] = [];
 
       // Use vector search if enabled and available
       if (this.config.graph?.enable_semantic_search) {
-        const vectorResult = await this.memory.vector.search(query, {
-          limit,
-          threshold: 0.7,
-          filter: category ? { category } : undefined
-        });
+        const vectorResult = await this.memory.vector.semanticSearch(query, limit, 0.7);
 
         if (vectorResult.success && vectorResult.data) {
-          results = vectorResult.data.map(match => ({
-            file: {
-              path: match.metadata.path,
-              content: match.content,
-              metadata: match.metadata,
-              category: match.metadata.category as KBCategory,
-              size: match.content.length,
-              modified: match.metadata.modified,
-              created: match.metadata.created || match.metadata.modified
-            },
-            score: match.similarity,
-            matches: [query],
-            snippet: this.extractSnippet(match.content, query)
-          }));
+          results = vectorResult.data.map(match => {
+            const node = match.node;
+            const content = node.type === NodeType.DOCUMENT ? (node as DocumentNode).content : 
+                           node.type === NodeType.MEMORY ? (node as MemoryNode).content : '';
+            
+            return {
+              file: {
+                path: node.metadata.path || node.id,
+                content,
+                metadata: node.metadata,
+                category: (node.metadata.category as KBCategory) || 'general',
+                size: content.length,
+                modified: node.metadata.modified || node.updated_at,
+                created: node.metadata.created || node.created_at
+              },
+              score: match.similarity,
+              matches: [{ line: 0, content: query, context: content.substring(0, 100) }],
+              snippet: this.extractSnippet(content, query)
+            };
+          });
         }
       } else {
         // Fallback to graph-based text search
@@ -475,7 +469,7 @@ export class GraphBackend implements StorageBackend {
                 created: doc.created
               },
               score: 1, // Simple binary match for text search
-              matches: [query],
+              matches: [{ line: 0, content: query, context: doc.content.substring(0, 100) }],
               snippet: this.extractSnippet(doc.content, query)
             };
           });
@@ -491,7 +485,7 @@ export class GraphBackend implements StorageBackend {
         success: false,
         error: {
           name: 'GraphSearchError',
-          message: `Search failed: ${error.message}`,
+          message: `Search failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
           code: 'GRAPH_SEARCH_FAILED',
           statusCode: 500,
           isOperational: true
@@ -549,7 +543,7 @@ export class GraphBackend implements StorageBackend {
       }
 
       const overallCompletion = Math.round(
-        phases.reduce((sum, phase) => sum + phase.completion, 0) / phases.length
+        phases.reduce((sum: number, phase: any) => sum + phase.completion, 0) / phases.length
       );
 
       // Count critical issues
@@ -573,7 +567,7 @@ export class GraphBackend implements StorageBackend {
         success: false,
         error: {
           name: 'GraphStatusError',
-          message: `Failed to get status: ${error.message}`,
+          message: `Failed to get status: ${error instanceof Error ? error.message : 'Unknown error'}`,
           code: 'GRAPH_STATUS_FAILED',
           statusCode: 500,
           isOperational: true
@@ -625,7 +619,7 @@ export class GraphBackend implements StorageBackend {
         success: false,
         error: {
           name: 'GraphIssuesError',
-          message: `Failed to get issues: ${error.message}`,
+          message: `Failed to get issues: ${error instanceof Error ? error.message : 'Unknown error'}`,
           code: 'GRAPH_ISSUES_FAILED',
           statusCode: 500,
           isOperational: true
@@ -667,7 +661,7 @@ export class GraphBackend implements StorageBackend {
         success: false,
         error: {
           name: 'GraphExportError',
-          message: `Failed to export data: ${error.message}`,
+          message: `Failed to export data: ${error instanceof Error ? error.message : 'Unknown error'}`,
           code: 'GRAPH_EXPORT_FAILED',
           statusCode: 500,
           isOperational: true
@@ -695,7 +689,7 @@ export class GraphBackend implements StorageBackend {
         success: false,
         error: {
           name: 'GraphImportError',
-          message: `Failed to import data: ${error.message}`,
+          message: `Failed to import data: ${error instanceof Error ? error.message : 'Unknown error'}`,
           code: 'GRAPH_IMPORT_FAILED',
           statusCode: 500,
           isOperational: true

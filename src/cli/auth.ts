@@ -12,8 +12,8 @@ import chalk from 'chalk';
 import inquirer from 'inquirer';
 import speakeasy from 'speakeasy';
 import qrcode from 'qrcode';
-import { SecurityContext, Result } from '@types/index.js';
-import { EncryptionService, SecurityValidator } from '@core/security.js';
+import { SecurityContext, Result } from '../types/index.js';
+import { EncryptionService, SecurityValidator } from '../core/security.js';
 
 interface AuthSession {
   context: SecurityContext;

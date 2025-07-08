@@ -10,7 +10,7 @@ import {
   Node, Edge, NodeType, EdgeType, SearchOptions, 
   GraphQueryResult, NodeSchema, EdgeSchema 
 } from './types.js';
-import { Result } from '@types/index.js';
+import { Result } from '../types/index.js';
 import { GRAPH_SCHEMA } from './schema.js';
 
 export class GraphMemory implements IGraphMemory {

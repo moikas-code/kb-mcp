@@ -6,7 +6,7 @@
 import { StorageBackend, BackendConfig } from './storage-interface.js';
 import { FilesystemBackend } from './filesystem-backend.js';
 import { GraphBackend } from './graph-backend.js';
-import { Result } from '@types/index.js';
+import { Result } from '../types/index.js';
 import { promises as fs } from 'fs';
 import path from 'path';
 import os from 'os';
@@ -55,7 +55,7 @@ export class BackendManager {
         success: false,
         error: {
           name: 'BackendManagerError',
-          message: `Failed to initialize backend manager: ${error.message}`,
+          message: `Failed to initialize backend manager: ${(error as Error).message}`,
           code: 'BACKEND_MANAGER_INIT_FAILED',
           statusCode: 500,
           isOperational: true
@@ -240,9 +240,10 @@ export class BackendManager {
         }
       };
 
-      const testBackend = new GraphBackend(testConfig);
-      const testResult = await testBackend.initialize();
-      return testResult.success;
+      // const testBackend = new GraphBackend(testConfig);
+      // const testResult = await testBackend.initialize();
+      // return testResult.success;
+      return false; // Temporarily disabled
     } catch {
       return false;
     }

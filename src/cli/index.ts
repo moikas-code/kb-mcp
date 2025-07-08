@@ -12,24 +12,13 @@ import inquirer from 'inquirer';
 import { promises as fs } from 'fs';
 import path from 'path';
 import os from 'os';
-import { SecurityContext } from '@types/index.js';
-import { SecureKBManager } from '@core/secure-kb-manager.js';
+import { SecurityContext } from '../types/index.js';
+import { SecureKBManager } from '../core/secure-kb-manager.js';
 import { AuthManager } from './auth.js';
-import { ConfigManager } from '@core/config.js';
+import { ConfigManager } from '../core/config.js';
 import { 
   initCommand,
-  readCommand,
-  writeCommand,
-  deleteCommand,
-  listCommand,
-  searchCommand,
   serveCommand,
-  auditCommand,
-  configCommand,
-  backupCommand,
-  restoreCommand,
-  exportCommand,
-  importCommand,
   updateCommand,
   dbCommand,
 } from './commands/index.js';
@@ -118,7 +107,7 @@ class KBManagerCLI {
       .option('-d, --decrypt', 'Decrypt encrypted content')
       .option('-m, --metadata', 'Show metadata only')
       .action(async (filePath, options) => {
-        await readCommand(filePath, options, this.kbManager!, this.context!);
+        await this.readCommand(filePath, options);
       });
 
     // Write/Update file
@@ -133,7 +122,7 @@ class KBManagerCLI {
       .option('-e, --encrypt', 'Encrypt the file')
       .option('-i, --interactive', 'Interactive mode')
       .action(async (filePath, options) => {
-        await writeCommand(filePath, options, this.kbManager!, this.context!);
+        await this.writeCommand(filePath, options);
       });
 
     // Delete file
@@ -144,7 +133,7 @@ class KBManagerCLI {
       .option('-f, --force', 'Skip confirmation')
       .option('--no-backup', 'Do not create backup')
       .action(async (filePath, options) => {
-        await deleteCommand(filePath, options, this.kbManager!, this.context!);
+        await this.deleteCommand(filePath, options);
       });
 
     // List directory
@@ -156,7 +145,7 @@ class KBManagerCLI {
       .option('-l, --long', 'Long format with details')
       .option('-a, --all', 'Show hidden files')
       .action(async (directory, options) => {
-        await listCommand(directory || '', options, this.kbManager!, this.context!);
+        await this.listCommand(directory || '', options);
       });
 
     // Search
@@ -169,7 +158,7 @@ class KBManagerCLI {
       .option('-l, --limit <number>', 'Maximum results', '100')
       .option('-c, --context <lines>', 'Context lines to show', '2')
       .action(async (query, options) => {
-        await searchCommand(query, options, this.kbManager!, this.context!);
+        await this.searchCommand(query, options);
       });
 
     // Serve as MCP server
@@ -197,7 +186,7 @@ class KBManagerCLI {
       .option('--format <type>', 'Export format (json, csv)', 'json')
       .option('-o, --output <file>', 'Output file')
       .action(async (action, options) => {
-        await auditCommand(action, options, this.kbManager!, this.context!);
+        await this.auditCommand(action, options);
       });
 
     // Configuration management
@@ -207,7 +196,7 @@ class KBManagerCLI {
       .option('-g, --global', 'Use global config')
       .option('-s, --secure', 'Encrypt sensitive values')
       .action(async (action, key, value, options) => {
-        await configCommand(action, key, value, options, this.configManager);
+        await this.configCommand(action, key, value, options);
       });
 
     // Backup
@@ -219,7 +208,7 @@ class KBManagerCLI {
       .option('-i, --incremental', 'Incremental backup')
       .option('--compress', 'Compress backup', true)
       .action(async (options) => {
-        await backupCommand(options, this.kbManager!, this.context!);
+        await this.backupCommand(options);
       });
 
     // Restore
@@ -230,7 +219,7 @@ class KBManagerCLI {
       .option('-f, --force', 'Overwrite existing files')
       .option('--verify', 'Verify backup integrity first', true)
       .action(async (backupPath, options) => {
-        await restoreCommand(backupPath, options, this.kbManager!, this.context!);
+        await this.restoreCommand(backupPath, options);
       });
 
     // Export
@@ -242,7 +231,7 @@ class KBManagerCLI {
       .option('-e, --encrypt', 'Encrypt export')
       .option('--include-audit', 'Include audit logs')
       .action(async (options) => {
-        await exportCommand(options, this.kbManager!, this.context!);
+        await this.exportCommand(options);
       });
 
     // Import
@@ -253,7 +242,7 @@ class KBManagerCLI {
       .option('--merge', 'Merge with existing content')
       .option('--validate', 'Validate before import', true)
       .action(async (file, options) => {
-        await importCommand(file, options, this.kbManager!, this.context!);
+        await this.importCommand(file, options);
       });
 
     // Authentication
@@ -448,6 +437,226 @@ class KBManagerCLI {
         console.error(chalk.red(`Unknown auth action: ${action}`));
         process.exit(1);
     }
+  }
+
+  /**
+   * Read command implementation
+   */
+  private async readCommand(filePath: string, options: any): Promise<void> {
+    const spinner = ora(`Reading ${filePath}`).start();
+    try {
+      const result = await this.kbManager!.readFile(filePath);
+      spinner.stop();
+      
+      if (!result.success) {
+        console.error(chalk.red('Error:'), result.error);
+        return;
+      }
+      
+      if (options.metadata) {
+        console.log(chalk.blue('Metadata:'), JSON.stringify(result.data.metadata, null, 2));
+      } else {
+        console.log(result.data.content);
+      }
+    } catch (error) {
+      spinner.fail(`Failed to read ${filePath}: ${error}`);
+    }
+  }
+
+  /**
+   * Write command implementation
+   */
+  private async writeCommand(filePath: string, options: any): Promise<void> {
+    let content = '';
+    
+    if (options.content) {
+      content = options.content;
+    } else if (options.file) {
+      const contentBuffer = await fs.readFile(options.file);
+      content = contentBuffer.toString();
+    } else if (options.interactive) {
+      const answer = await inquirer.prompt([{
+        type: 'editor',
+        name: 'content',
+        message: 'Enter content:'
+      }]);
+      content = answer.content;
+    } else {
+      console.error(chalk.red('Error: Must provide content via --content, --file, or --interactive'));
+      return;
+    }
+    
+    const spinner = ora(`Writing ${filePath}`).start();
+    try {
+      const result = await this.kbManager!.writeFile(filePath, content);
+      if (result.success) {
+        spinner.succeed(`File ${filePath} written successfully`);
+      } else {
+        spinner.fail(`Failed to write ${filePath}: ${result.error}`);
+      }
+    } catch (error) {
+      spinner.fail(`Failed to write ${filePath}: ${error}`);
+    }
+  }
+
+  /**
+   * Delete command implementation
+   */
+  private async deleteCommand(filePath: string, options: any): Promise<void> {
+    if (!options.force) {
+      const answer = await inquirer.prompt([{
+        type: 'confirm',
+        name: 'confirm',
+        message: `Are you sure you want to delete ${filePath}?`,
+        default: false
+      }]);
+      
+      if (!answer.confirm) {
+        console.log(chalk.yellow('Delete cancelled'));
+        return;
+      }
+    }
+    
+    const spinner = ora(`Deleting ${filePath}`).start();
+    try {
+      const result = await this.kbManager!.deleteFile(filePath);
+      if (result.success) {
+        spinner.succeed(`File ${filePath} deleted successfully`);
+      } else {
+        spinner.fail(`Failed to delete ${filePath}: ${result.error}`);
+      }
+    } catch (error) {
+      spinner.fail(`Failed to delete ${filePath}: ${error}`);
+    }
+  }
+
+  /**
+   * List command implementation
+   */
+  private async listCommand(directory: string, options: any): Promise<void> {
+    const spinner = ora(`Listing ${directory || 'root'}`).start();
+    try {
+      const result = await this.kbManager!.listFiles(directory);
+      spinner.stop();
+      
+      if (!result.success) {
+        console.error(chalk.red('Error:'), result.error);
+        return;
+      }
+      
+      console.log(chalk.blue(`\nContents of ${directory || 'root'}:`));
+      result.data.files.forEach((file: any) => {
+        if (options.long) {
+          console.log(`${file.path.padEnd(30)} ${file.size.toString().padStart(10)} ${file.modified}`);
+        } else {
+          console.log(file.path);
+        }
+      });
+      
+      console.log(chalk.gray(`\nTotal: ${result.data.total_files} files`));
+    } catch (error) {
+      spinner.fail(`Failed to list ${directory}: ${error}`);
+    }
+  }
+
+  /**
+   * Search command implementation
+   */
+  private async searchCommand(query: string, options: any): Promise<void> {
+    const spinner = ora(`Searching for "${query}"`).start();
+    try {
+      const result = await this.kbManager!.searchContent(query, {
+        limit: parseInt(options.limit),
+        category: options.category,
+        includeContent: true
+      });
+      spinner.stop();
+      
+      if (!result.success) {
+        console.error(chalk.red('Error:'), result.error);
+        return;
+      }
+      
+      console.log(chalk.blue(`\nSearch results for "${query}":`));
+      result.data.forEach((item: any, index: number) => {
+        console.log(`\n${index + 1}. ${chalk.yellow(item.file.path)} (score: ${item.score})`);
+        if (item.snippet) {
+          console.log(chalk.gray(item.snippet));
+        }
+      });
+      
+      console.log(chalk.gray(`\nTotal: ${result.data.length} results`));
+    } catch (error) {
+      spinner.fail(`Search failed: ${error}`);
+    }
+  }
+
+  /**
+   * Audit command implementation
+   */
+  private async auditCommand(action: string, options: any): Promise<void> {
+    console.log(chalk.yellow(`Audit ${action} not implemented yet`));
+  }
+
+  /**
+   * Config command implementation
+   */
+  private async configCommand(action: string, key: string, value: string, options: any): Promise<void> {
+    switch (action) {
+      case 'get':
+        if (key) {
+          const val = this.configManager.get(key);
+          console.log(val);
+        } else {
+          console.log(JSON.stringify(this.configManager.getConfig(), null, 2));
+        }
+        break;
+      
+      case 'set':
+        if (!key || value === undefined) {
+          console.error(chalk.red('Error: key and value are required for set'));
+          return;
+        }
+        this.configManager.set(key, value);
+        await this.configManager.save();
+        console.log(chalk.green(`Set ${key} = ${value}`));
+        break;
+      
+      case 'list':
+        console.log(JSON.stringify(this.configManager.getConfig(), null, 2));
+        break;
+      
+      default:
+        console.error(chalk.red(`Unknown config action: ${action}`));
+    }
+  }
+
+  /**
+   * Backup command implementation
+   */
+  private async backupCommand(options: any): Promise<void> {
+    console.log(chalk.yellow('Backup command not implemented yet'));
+  }
+
+  /**
+   * Restore command implementation
+   */
+  private async restoreCommand(backupPath: string, options: any): Promise<void> {
+    console.log(chalk.yellow('Restore command not implemented yet'));
+  }
+
+  /**
+   * Export command implementation
+   */
+  private async exportCommand(options: any): Promise<void> {
+    console.log(chalk.yellow('Export command not implemented yet'));
+  }
+
+  /**
+   * Import command implementation
+   */
+  private async importCommand(file: string, options: any): Promise<void> {
+    console.log(chalk.yellow('Import command not implemented yet'));
   }
 
   /**

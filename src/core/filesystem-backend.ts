@@ -8,9 +8,9 @@ import path from 'path';
 // Note: Using require for compatibility with current setup
 const glob = require('glob');
 const matter = require('gray-matter');
-import { StorageBackend, SearchOptions, ImplementationStatus, KnownIssue, BackendExport, BackendConfig } from './storage-interface.js';
-import { KBFile, KBDirectory, SearchResult, KBCategory, KB_CATEGORIES } from './types.js';
-import { Result } from '@types/index.js';
+import { StorageBackend, SearchOptions, BackendConfig } from './storage-interface.js';
+import { KBFile, KBDirectory, SearchResult, KBCategory, KB_CATEGORIES, ImplementationStatus, KnownIssue, BackendExport } from './types.js';
+import { Result } from '../types/index.js';
 
 export class FilesystemBackend implements StorageBackend {
   private readonly kbPath: string;

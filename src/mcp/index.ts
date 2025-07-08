@@ -1,124 +1,136 @@
 #!/usr/bin/env node
 
 /**
- * Script KB MCP Server
+ * KB-MCP Server
  * 
- * An MCP server for managing the Script programming language knowledge base.
- * Provides tools for reading, updating, and searching documentation.
+ * Multi-transport MCP server for knowledge base management.
+ * Supports stdio, WebSocket, and SSE transports for local and remote access.
  */
 
-import { Server } from '@modelcontextprotocol/sdk/server/index.js';
-import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import {
-  CallToolRequestSchema,
-  ListToolsRequestSchema,
-} from '@modelcontextprotocol/sdk/types.js';
-import { BackendManager } from '@core/backend-manager.js';
-import { createTools, executeTool } from './tools.js';
+import { MultiTransportServer } from './multi-transport-server.js';
+import { createOAuth2ConfigFromEnv } from '../auth/oauth2-config.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Server metadata
-const SERVER_NAME = 'script-kb-mcp';
-const SERVER_VERSION = '0.1.0';
+// Parse command line arguments
+const args = process.argv.slice(2);
+const isLocal = args.includes('--local');
+const wsPort = parseInt(args.find(arg => arg.startsWith('--ws-port='))?.split('=')[1] || '8080');
+const ssePort = parseInt(args.find(arg => arg.startsWith('--sse-port='))?.split('=')[1] || '8081');
+const authSecret = args.find(arg => arg.startsWith('--auth-secret='))?.split('=')[1];
 
-class ScriptKBServer {
-  private server: Server;
-  private backendManager: BackendManager;
+// Determine project root
+let projectRoot = process.env.KB_PROJECT_ROOT;
+if (!projectRoot) {
+  projectRoot = path.resolve(__dirname, '../../..');
+  try {
+    const kbPath = path.join(projectRoot, 'kb');
+    require('fs').accessSync(kbPath);
+  } catch {
+    projectRoot = process.cwd();
+  }
+}
 
-  constructor() {
-    // Get project root from environment or use default
-    // If running from the script-kb-mcp directory, go up one level to script root
-    let projectRoot = process.env.SCRIPT_PROJECT_ROOT;
-    if (!projectRoot) {
-      // Default: assume we're in script/script-kb-mcp/dist/
-      projectRoot = path.resolve(__dirname, '../../..');
-      // If that doesn't have a kb directory, try current working directory
-      try {
-        const kbPath = path.join(projectRoot, 'kb');
-        require('fs').accessSync(kbPath);
-      } catch {
-        // Try current working directory
-        projectRoot = process.cwd();
-      }
+console.error(`Initializing KB-MCP server with project root: ${projectRoot}`);
+
+// Configure OAuth2 if enabled
+const oauth2Config = createOAuth2ConfigFromEnv();
+
+// Configure server options
+const serverOptions = {
+  stdio: true, // Always enable stdio for local development
+  websocket: !isLocal ? {
+    port: wsPort,
+    host: '0.0.0.0',
+    path: '/mcp',
+    maxConnections: 100,
+    heartbeatInterval: 30000,
+    authentication: {
+      enabled: !!authSecret || oauth2Config.enabled,
+      secret: authSecret
     }
-    
-    console.error(`Initializing Backend Manager with project root: ${projectRoot}`);
-    
-    this.backendManager = new BackendManager(projectRoot);
-    this.server = new Server(
-      {
-        name: SERVER_NAME,
-        version: SERVER_VERSION,
-      },
-      {
-        capabilities: {
-          tools: {},
-        },
-      }
-    );
-
-    this.setupHandlers();
-  }
-
-  private setupHandlers() {
-    // Handler for listing available tools
-    this.server.setRequestHandler(ListToolsRequestSchema, async () => ({
-      tools: createTools(this.backendManager),
-    }));
-
-    // Handler for executing tools
-    this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
-      const { name, arguments: args } = request.params;
-      
-      try {
-        const result = await executeTool(name, args, this.backendManager);
-        return {
-          content: [
-            {
-              type: 'text',
-              text: JSON.stringify(result, null, 2),
-            },
-          ],
-        };
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        return {
-          content: [
-            {
-              type: 'text',
-              text: JSON.stringify({
-                error: errorMessage,
-                tool: name,
-                args: args
-              }, null, 2),
-            },
-          ],
-          isError: true,
-        };
-      }
-    });
-  }
-
-  async start() {
-    // Initialize backend manager first
-    console.error('Initializing backend manager...');
-    const initResult = await this.backendManager.initialize();
-    if (!initResult.success) {
-      console.error('Failed to initialize backend manager:', initResult.error.message);
-      process.exit(1);
+  } : undefined,
+  sse: !isLocal ? {
+    port: ssePort,
+    host: '0.0.0.0',
+    path: '/mcp',
+    maxConnections: 100,
+    heartbeatInterval: 30000,
+    cors: {
+      origin: '*',
+      credentials: false
+    },
+    rateLimit: {
+      points: 100,
+      duration: 60
+    },
+    authentication: {
+      enabled: !!authSecret || oauth2Config.enabled,
+      secret: authSecret
     }
+  } : undefined,
+  authentication: {
+    enabled: !!authSecret || oauth2Config.enabled,
+    secret: authSecret
+  },
+  oauth2: oauth2Config.enabled ? {
+    ...oauth2Config,
+    port: parseInt(args.find(arg => arg.startsWith('--oauth2-port='))?.split('=')[1] || '3000')
+  } : undefined
+};
 
-    const backend = this.backendManager.getBackend();
-    console.error(`Backend initialized: ${backend?.getBackendType()}`);
-
-    const transport = new StdioServerTransport();
-    await this.server.connect(transport);
-    console.error(`${SERVER_NAME} v${SERVER_VERSION} running on stdio`);
+// Create and start server
+async function main() {
+  const server = new MultiTransportServer(serverOptions, projectRoot);
+  
+  // Initialize server
+  console.error('Initializing server...');
+  const initResult = await server.initialize();
+  if (!initResult.success) {
+    console.error('Failed to initialize server:', initResult.error.message);
+    process.exit(1);
   }
+  
+  // Start server
+  console.error('Starting server...');
+  const startResult = await server.start();
+  if (!startResult.success) {
+    console.error('Failed to start server:', startResult.error.message);
+    process.exit(1);
+  }
+  
+  console.error('KB-MCP server started successfully');
+  
+  if (!isLocal) {
+    console.error(`WebSocket endpoint: ws://localhost:${wsPort}/mcp`);
+    console.error(`SSE endpoint: http://localhost:${ssePort}/mcp/events`);
+    console.error(`HTTP endpoint: http://localhost:${ssePort}/mcp/message`);
+    console.error(`Health check: http://localhost:${ssePort}/mcp/health`);
+    
+    if (oauth2Config.enabled) {
+      console.error(`OAuth2 server: http://localhost:${oauth2Config.port || 3000}/oauth2/`);
+      console.error(`OAuth2 health: http://localhost:${oauth2Config.port || 3000}/oauth2/health`);
+      console.error('OAuth2 authentication enabled - obtain token from OAuth2 endpoints');
+    } else if (authSecret) {
+      console.error('Simple authentication enabled - use Authorization: Bearer <secret>');
+    }
+  }
+  
+  // Graceful shutdown
+  process.on('SIGINT', async () => {
+    console.error('Shutting down server...');
+    await server.stop();
+    process.exit(0);
+  });
+  
+  process.on('SIGTERM', async () => {
+    console.error('Shutting down server...');
+    await server.stop();
+    process.exit(0);
+  });
 }
 
 // Error handling
@@ -133,11 +145,6 @@ process.on('unhandledRejection', (reason, promise) => {
 });
 
 // Start the server
-async function main() {
-  const server = new ScriptKBServer();
-  await server.start();
-}
-
 main().catch((error) => {
   console.error('Failed to start server:', error);
   process.exit(1);
