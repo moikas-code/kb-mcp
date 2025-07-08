@@ -546,9 +546,9 @@ Happy documenting!
     const spinner = ora(`Switching to ${type} backend`).start();
     
     try {
-      const result = await this.backendManager.switchBackend(type);
+      const result = await this.backendManager.switchBackend(type as 'filesystem' | 'graph');
       if (!result.success) {
-        throw new Error(result.error);
+        throw new Error(result.error?.message || String(result.error));
       }
       
       spinner.succeed(`Switched to ${type} backend successfully`);
@@ -563,24 +563,37 @@ Happy documenting!
   private async backendInfo(): Promise<void> {
     try {
       await this.ensureBackendInitialized();
-      const info = await this.backendManager.getBackendInfo();
+      const backend = this.backendManager.getBackend();
+      if (!backend) {
+        console.log(chalk.red('No backend initialized'));
+        return;
+      }
+      
+      const healthResult = await this.backendManager.getBackendHealth();
+      const config = this.backendManager.getCurrentConfig();
       
       console.log(chalk.bold('\n🔧 Backend Information'));
       console.log(chalk.gray('─'.repeat(40)));
-      console.log('Type:', chalk.cyan(info.type));
-      console.log('Status:', info.connected ? chalk.green('Connected') : chalk.red('Disconnected'));
+      console.log('Type:', chalk.cyan(backend.getBackendType()));
+      console.log('Status:', healthResult.success ? chalk.green('Healthy') : chalk.red('Unhealthy'));
       
-      if (info.config) {
+      if (config) {
         console.log('\nConfiguration:');
-        Object.entries(info.config).forEach(([key, value]) => {
-          console.log(`  ${key}:`, chalk.gray(JSON.stringify(value)));
-        });
+        console.log('  type:', chalk.gray(config.type));
+        if (config.filesystem) {
+          console.log('  root_path:', chalk.gray(config.filesystem.root_path));
+          console.log('  enable_versioning:', chalk.gray(config.filesystem.enable_versioning));
+        }
+        if (config.graph) {
+          console.log('  connection:', chalk.gray(JSON.stringify(config.graph.connection)));
+          console.log('  vector_dimensions:', chalk.gray(config.graph.vector_dimensions));
+        }
       }
       
-      if (info.features) {
-        console.log('\nFeatures:');
-        info.features.forEach(feature => {
-          console.log(`  ✓ ${feature}`);
+      if (healthResult.success && healthResult.data?.details) {
+        console.log('\nHealth Details:');
+        Object.entries(healthResult.data.details).forEach(([key, value]) => {
+          console.log(`  ${key}:`, chalk.gray(JSON.stringify(value)));
         });
       }
     } catch (error) {
@@ -645,16 +658,7 @@ Happy documenting!
   }
 }
 
-/**
- * Format bytes to human readable string
- */
-function formatBytes(bytes: number): string {
-  if (bytes === 0) return '0 B';
-  const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
-}
+// Removed unused formatBytes function
 
 // Handle uncaught errors
 process.on('unhandledRejection', (reason) => {
