@@ -16,7 +16,7 @@ import {
   AuditEvent,
   Result,
   EncryptedData
-} from '@types/index.js';
+} from '../types/index.js';
 import { 
   SecurityValidator, 
   EncryptionService, 

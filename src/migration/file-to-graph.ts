@@ -11,7 +11,7 @@ import { KBManager } from '@core/kb-manager.js';
 import { GraphKBManager } from '@core/graph-kb-manager.js';
 import { UnifiedMemoryConfig } from '@graph/index.js';
 import { NodeType, EdgeType } from '@graph/types.js';
-import { Result } from '@types/index.js';
+import { Result } from '../types/index.js';
 
 export interface MigrationConfig {
   source_path: string;

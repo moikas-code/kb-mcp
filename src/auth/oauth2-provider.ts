@@ -12,6 +12,7 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import winston from 'winston';
 import { Result } from '../types/index.js';
+import { rateLimitMiddleware } from '../mcp/middleware.js';
 
 export interface OAuth2Config {
   enabled: boolean;
@@ -163,9 +164,24 @@ export class OAuth2Provider {
     }
     
     // Administration endpoints
-    this.app.get('/oauth2/users', this.requireAuth.bind(this), this.handleListUsers.bind(this));
-    this.app.put('/oauth2/users/:id', this.requireAuth.bind(this), this.handleUpdateUser.bind(this));
-    this.app.delete('/oauth2/users/:id', this.requireAuth.bind(this), this.handleDeleteUser.bind(this));
+    this.app.get(
+      '/oauth2/users',
+      rateLimitMiddleware({ maxRequests: 30, windowMs: 60000 }),
+      this.requireAuth.bind(this),
+      this.handleListUsers.bind(this)
+    );
+    this.app.put(
+      '/oauth2/users/:id',
+      rateLimitMiddleware({ maxRequests: 30, windowMs: 60000 }),
+      this.requireAuth.bind(this),
+      this.handleUpdateUser.bind(this)
+    );
+    this.app.delete(
+      '/oauth2/users/:id',
+      rateLimitMiddleware({ maxRequests: 30, windowMs: 60000 }),
+      this.requireAuth.bind(this),
+      this.handleDeleteUser.bind(this)
+    );
     
     // Health check
     this.app.get('/oauth2/health', (_req, res) => {

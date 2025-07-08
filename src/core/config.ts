@@ -8,7 +8,7 @@ import path from 'path';
 import os from 'os';
 import yaml from 'js-yaml';
 import Joi from 'joi';
-import { KBConfig, Result } from '@types/index.js';
+import { KBConfig, Result } from '../types/index.js';
 import { EncryptionService } from './security.js';
 
 // Configuration schema

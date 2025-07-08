@@ -4,7 +4,7 @@
  */
 
 import { EventEmitter } from 'events';
-import { AlertRule, MonitoringConfig } from '@types/index.js';
+import { AlertRule, MonitoringConfig } from '../types/index.js';
 import { MetricsCollector } from './metrics.js';
 import { HealthMonitor } from './health.js';
 

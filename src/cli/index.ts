@@ -1,33 +1,663 @@
 #!/usr/bin/env node
-
 /**
- * KB Manager CLI
- * Production-ready command-line interface for knowledge base management
+ * Unified KB CLI implementation
+ * Combines basic functionality with backend management capabilities
  */
 
 import { Command } from 'commander';
 import chalk from 'chalk';
 import ora from 'ora';
-import inquirer from 'inquirer';
 import { promises as fs } from 'fs';
 import path from 'path';
-import os from 'os';
-import { SecurityContext } from '../types/index.js';
-import { SecureKBManager } from '../core/secure-kb-manager.js';
-import { AuthManager } from './auth.js';
-import { ConfigManager } from '../core/config.js';
+import { glob } from 'glob';
+import { BackendManager } from '../core/backend-manager.js';
+import { MultiTransportServer } from '../mcp/multi-transport-server.js';
 import { 
-  initCommand,
-  serveCommand,
-  updateCommand,
   dbCommand,
+  updateCommand,
 } from './commands/index.js';
+import inquirer from 'inquirer';
 
-// Version from package.json
-const VERSION = '1.0.0';
+const VERSION = '1.2.1';
 
-// Global error handler
-process.on('unhandledRejection', (reason, promise) => {
+interface FileInfo {
+  path: string;
+  size: number;
+  modified: string;
+  content?: string;
+}
+
+/**
+ * Unified KB CLI with backend management
+ */
+class UnifiedKBCLI {
+  private program: Command;
+  private kbPath: string;
+  private backendManager: BackendManager;
+
+  constructor() {
+    this.program = new Command();
+    this.kbPath = path.join(process.cwd(), 'kb');
+    this.backendManager = new BackendManager(process.cwd());
+    this.setupProgram();
+    this.setupCommands();
+  }
+
+  private setupProgram(): void {
+    this.program
+      .name('kb')
+      .description('Knowledge Base Management CLI with Backend Support')
+      .version(VERSION)
+      .option('-d, --debug', 'Enable debug logging')
+      .option('-c, --config <path>', 'Path to config file');
+  }
+
+  private setupCommands(): void {
+    // Initialize command
+    this.program
+      .command('init')
+      .description('Initialize a new knowledge base')
+      .option('-t, --type <type>', 'Backend type (filesystem or graph)', 'filesystem')
+      .action(async (options) => {
+        await this.initCommand(options);
+      });
+
+    // Read command
+    this.program
+      .command('read <path>')
+      .alias('cat')
+      .description('Read a file from the knowledge base')
+      .action(async (filePath) => {
+        await this.readCommand(filePath);
+      });
+
+    // Write command
+    this.program
+      .command('write <path> [content]')
+      .alias('create')
+      .description('Write content to a file in the knowledge base')
+      .option('-e, --editor', 'Open system editor for content input')
+      .action(async (filePath, content, cmdObj) => {
+        await this.writeCommand(filePath, content, cmdObj.editor);
+      });
+
+    // List command
+    this.program
+      .command('list [directory]')
+      .alias('ls')
+      .description('List files in the knowledge base')
+      .action(async (directory) => {
+        await this.listCommand(directory || '');
+      });
+
+    // Search command
+    this.program
+      .command('search <query>')
+      .alias('find')
+      .description('Search for content in the knowledge base')
+      .option('-l, --limit <number>', 'Maximum results', '10')
+      .option('-s, --semantic', 'Use semantic search (graph backend only)')
+      .action(async (query, options) => {
+        await this.searchCommand(query, options);
+      });
+
+    // Delete command
+    this.program
+      .command('delete <path>')
+      .alias('rm')
+      .description('Delete a file from the knowledge base')
+      .action(async (filePath) => {
+        await this.deleteCommand(filePath);
+      });
+
+    // Status command
+    this.program
+      .command('status')
+      .description('Show knowledge base status and backend info')
+      .action(async () => {
+        await this.statusCommand();
+      });
+
+    // Backend command
+    this.program
+      .command('backend')
+      .description('Manage storage backend')
+      .addCommand(
+        new Command('switch')
+          .argument('<type>', 'Backend type (filesystem or graph)')
+          .description('Switch between storage backends')
+          .action(async (type) => {
+            await this.switchBackend(type);
+          })
+      )
+      .addCommand(
+        new Command('info')
+          .description('Show current backend information')
+          .action(async () => {
+            await this.backendInfo();
+          })
+      );
+
+    // Serve command (MCP server)
+    this.program
+      .command('serve')
+      .description('Start MCP server')
+      .option('--local', 'Local stdio mode only')
+      .option('--ws-port <port>', 'WebSocket port', '8080')
+      .option('--sse-port <port>', 'SSE port', '8081')
+      .action(async (options) => {
+        await this.serveCommand(options);
+      });
+
+    // Database command
+    dbCommand(this.program);
+
+    // Update command
+    updateCommand(this.program);
+
+    // Version command
+    this.program
+      .command('version')
+      .description('Show version information')
+      .action(() => {
+        console.log(`KB-MCP CLI version ${VERSION}`);
+        console.log(`Node.js ${process.version}`);
+        console.log(`Platform: ${process.platform} ${process.arch}`);
+      });
+  }
+
+  private async ensureBackendInitialized(): Promise<void> {
+    const result = await this.backendManager.initialize();
+    if (!result.success) {
+      console.error(chalk.red('Failed to initialize backend:'), result.error);
+      process.exit(1);
+    }
+  }
+
+  private async initCommand(options: any): Promise<void> {
+    const spinner = ora('Initializing knowledge base').start();
+    
+    try {
+      // Create config file
+      const config = {
+        backend: {
+          type: options.type,
+          filesystem: {
+            root_path: './kb',
+            enable_versioning: true,
+            enable_compression: false,
+            max_file_size: '10MB',
+            allowed_extensions: ['.md', '.markdown', '.txt'],
+          },
+          graph: {
+            connection: {
+              host: 'localhost',
+              port: 6380,
+            },
+            vector_dimensions: 1536,
+            enable_semantic_search: true,
+            enable_temporal_queries: true,
+          }
+        },
+        security: {
+          enable_audit: true,
+          enable_encryption: false,
+        }
+      };
+
+      await fs.writeFile('.kbconfig.yaml', require('js-yaml').dump(config));
+      
+      // Initialize backend
+      await this.ensureBackendInitialized();
+      const backend = this.backendManager.getBackend();
+      
+      if (!backend) {
+        throw new Error('Backend not initialized');
+      }
+
+      // Initialize the storage
+      const initResult = await backend.initialize();
+      if (!initResult.success) {
+        throw new Error(initResult.error?.message || String(initResult.error));
+      }
+      
+      // Create basic structure
+      const dirs = ['docs', 'notes', 'references', 'guides', 'archive', 'active'];
+      for (const dir of dirs) {
+        await backend.writeFile(`${dir}/.gitkeep`, '');
+      }
+      
+      // Create README
+      const readme = `# Knowledge Base
+
+Welcome to your knowledge base!
+
+## Configuration
+Backend Type: ${options.type}
+${options.type === 'graph' ? 'Graph database enabled with semantic search capabilities.' : 'Filesystem storage with versioning support.'}
+
+## Structure
+- \`docs/\` - Documentation files
+- \`notes/\` - Meeting notes and quick thoughts  
+- \`references/\` - Reference materials and specs
+- \`guides/\` - How-to guides and tutorials
+- \`archive/\` - Archived content
+- \`active/\` - Active issues and tasks
+
+## Usage
+\`\`\`bash
+# Read a file
+kb read docs/example.md
+
+# Create a file
+kb write docs/new-doc.md "# New Document\\n\\nContent here"
+
+# List files
+kb list
+
+# Search content
+kb search "keyword"
+${options.type === 'graph' ? '# Semantic search\nkb search "similar concepts" --semantic' : ''}
+
+# Delete a file
+kb delete docs/old-file.md
+
+# Switch backend
+kb backend switch ${options.type === 'filesystem' ? 'graph' : 'filesystem'}
+
+# Start MCP server
+kb serve
+\`\`\`
+
+## CLI Commands
+- \`kb init\` - Initialize a new knowledge base
+- \`kb read <path>\` - Read a file
+- \`kb write <path> <content>\` - Write content to a file
+- \`kb list [directory]\` - List files
+- \`kb search <query>\` - Search for content
+- \`kb delete <path>\` - Delete a file
+- \`kb status\` - Show status information
+- \`kb backend\` - Manage storage backend
+- \`kb serve\` - Start MCP server
+- \`kb version\` - Show version
+
+---
+
+Generated by KB-MCP CLI v${VERSION}
+`;
+      
+      await backend.writeFile('README.md', readme);
+      
+      // Create example files
+      await backend.writeFile(
+        'docs/getting-started.md',
+        `# Getting Started
+
+This is your first document in the knowledge base.
+
+## Quick Start
+
+1. Create new files with \`kb write\`
+2. Read existing files with \`kb read\`
+3. Search content with \`kb search\`
+4. List all files with \`kb list\`
+5. Switch backends with \`kb backend switch\`
+
+Happy documenting!
+`
+      );
+
+      await backend.writeFile(
+        'active/SETUP_COMPLETE.md',
+        `# Setup Complete
+
+- **Date**: ${new Date().toISOString()}
+- **Backend**: ${options.type}
+- **Status**: ✅ Ready
+
+## Next Steps
+1. Start adding your content
+2. Configure MCP server if needed
+3. Set up graph database for advanced features
+`
+      );
+      
+      spinner.succeed(`Knowledge base initialized successfully with ${options.type} backend`);
+      console.log(chalk.blue(`\nKB created with backend:`), chalk.cyan(options.type));
+      console.log(chalk.gray('Configuration saved to:'), chalk.cyan('.kbconfig.yaml'));
+      console.log(chalk.gray('Structure:'), 'docs/, notes/, references/, guides/, archive/, active/');
+      
+    } catch (error) {
+      spinner.fail(`Initialization failed: ${error}`);
+    }
+  }
+
+  private async readCommand(filePath: string): Promise<void> {
+    const spinner = ora(`Reading ${filePath}`).start();
+    
+    try {
+      await this.ensureBackendInitialized();
+      const backend = this.backendManager.getBackend()!;
+      
+      const result = await backend.readFile(filePath);
+      if (!result.success) {
+        throw new Error(result.error?.message || String(result.error));
+      }
+      
+      spinner.stop();
+      console.log(chalk.blue(`\n📄 ${filePath}`));
+      console.log(chalk.gray(`Backend: ${backend.getBackendType()}`));
+      console.log(chalk.gray('─'.repeat(50)));
+      console.log(result.data);
+    } catch (error: any) {
+      spinner.fail(`Failed to read ${filePath}: ${error?.message || String(error)}`);
+    }
+  }
+
+  private async writeCommand(filePath: string, content: string, useEditor = false): Promise<void> {
+    let finalContent = content;
+    if (!finalContent) {
+      if (useEditor) {
+        // Use system editor for multi-line input
+        const { inputContent } = await inquirer.prompt([
+          {
+            type: 'editor',
+            name: 'inputContent',
+            message: `Enter content for ${filePath}:`,
+            default: '# New KB Entry\n\n',
+          },
+        ]);
+        finalContent = inputContent;
+      } else {
+        // Multi-line inline input (end with a single "." on a line)
+        console.log(chalk.yellow('Enter content below. Finish with a single "." on a line:'));
+        const lines: string[] = [];
+        while (true) {
+          const { line } = await inquirer.prompt([
+            {
+              type: 'input',
+              name: 'line',
+              message: '',
+            },
+          ]);
+          if (line.trim() === '.') break;
+          lines.push(line);
+        }
+        finalContent = lines.join('\n');
+      }
+    }
+    const spinner = ora(`Writing ${filePath}`).start();
+    try {
+      await this.ensureBackendInitialized();
+      const backend = this.backendManager.getBackend()!;
+      // Process content (decode \\n to actual newlines)
+      const processedContent = finalContent.replace(/\\n/g, '\n');
+      const result = await backend.writeFile(filePath, processedContent);
+      if (!result.success) {
+        throw new Error(result.error?.message || String(result.error));
+      }
+      spinner.succeed(`File ${filePath} written successfully`);
+      console.log(chalk.gray(`Backend: ${backend.getBackendType()}`));
+    } catch (error: any) {
+      spinner.fail(`Failed to write ${filePath}: ${error?.message || String(error)}`);
+    }
+  }
+
+  private async listCommand(directory: string): Promise<void> {
+    const spinner = ora(`Listing ${directory || 'root'}`).start();
+    
+    try {
+      await this.ensureBackendInitialized();
+      const backend = this.backendManager.getBackend()!;
+      
+      const result = await backend.listFiles(directory);
+      if (!result.success) {
+        throw new Error(result.error?.message || String(result.error));
+      }
+      const files = result.data!.files || [];
+      
+      spinner.stop();
+      console.log(chalk.blue(`\n📁 Contents of ${directory || 'knowledge base'}:`));
+      console.log(chalk.gray(`Backend: ${backend.getBackendType()}`));
+      console.log(chalk.gray('─'.repeat(60)));
+      
+      if (files.length === 0) {
+        console.log(chalk.gray('No files found'));
+        return;
+      }
+      
+      // Sort and display files
+      files.sort((a, b) => a.path.localeCompare(b.path));
+      files.forEach((file) => {
+        // KBFile does not have a 'type' property, so just show the path
+        console.log(chalk.cyan(file.path));
+      });
+      
+      console.log(chalk.gray('─'.repeat(60)));
+      console.log(chalk.gray(`Total: ${files.length} items`));
+    } catch (error) {
+      spinner.fail(`Failed to list directory: ${error}`);
+    }
+  }
+
+  private async searchCommand(query: string, options: any): Promise<void> {
+    const spinner = ora(`Searching for "${query}"`).start();
+    try {
+      await this.ensureBackendInitialized();
+      const backend = this.backendManager.getBackend()!;
+      const limit = parseInt(options.limit) || 10;
+      const searchResult = await backend.searchContent(query, { limit });
+      if (!searchResult.success) {
+        throw new Error(searchResult.error?.message || String(searchResult.error));
+      }
+      const results = searchResult.data || [];
+      const limitedResults = results.slice(0, limit);
+      spinner.stop();
+      console.log(chalk.blue(`\n🔍 Search results for "${query}":`));
+      console.log(chalk.gray(`Backend: ${backend.getBackendType()}`));
+      console.log(chalk.gray('─'.repeat(60)));
+      if (limitedResults.length === 0) {
+        console.log(chalk.gray('No matches found'));
+        return;
+      }
+      limitedResults.forEach((result, index) => {
+        console.log(`\n${index + 1}. ${chalk.yellow(result.file.path)}`);
+        if (result.score !== undefined) {
+          console.log(chalk.gray(`   Score: ${result.score.toFixed(3)}`));
+        }
+        result.matches.forEach((match) => {
+          const preview = match.content || '';
+          console.log(chalk.gray(`   Line ${match.line}:`), preview.trim());
+        });
+      });
+      console.log(chalk.gray(`\nShowing ${limitedResults.length} of ${results.length} results`));
+    } catch (error: any) {
+      spinner.fail(`Search failed: ${error?.message || String(error)}`);
+    }
+  }
+
+  private async deleteCommand(filePath: string): Promise<void> {
+    const spinner = ora(`Deleting ${filePath}`).start();
+    
+    try {
+      await this.ensureBackendInitialized();
+      const backend = this.backendManager.getBackend()!;
+      
+      const result = await backend.deleteFile(filePath);
+      if (!result.success) {
+        throw new Error(result.error?.message || String(result.error));
+      }
+      
+      spinner.succeed(`File ${filePath} deleted successfully`);
+      console.log(chalk.gray(`Backend: ${this.backendManager.getBackend()!.getBackendType()}`));
+    } catch (error) {
+      spinner.fail(`Failed to delete ${filePath}: ${error}`);
+    }
+  }
+
+  private async statusCommand(): Promise<void> {
+    try {
+      await this.ensureBackendInitialized();
+      const backend = this.backendManager.getBackend()!;
+      
+      const result = await backend.getStatus();
+      if (!result.success) {
+        throw new Error(result.error?.message || String(result.error));
+      }
+      
+      const status = result.data!;
+      
+      console.log(chalk.bold('\n📊 Knowledge Base Status'));
+      console.log(chalk.gray('─'.repeat(40)));
+      console.log('Backend Type:', chalk.cyan(backend.getBackendType()));
+      console.log('Overall Completion:', chalk.cyan(`${status.overall_completion}%`));
+      console.log('Critical Issues:', chalk.red(status.critical_issues.toString()));
+      
+      if (status.last_updated) {
+        console.log('Last updated:', chalk.gray(new Date(status.last_updated).toLocaleString()));
+      }
+      
+      if (status.phases && status.phases.length > 0) {
+        console.log('\nPhases:');
+        status.phases.forEach(phase => {
+          const statusColor = phase.status === 'completed' ? chalk.green :
+                            phase.status === 'in_progress' ? chalk.yellow :
+                            phase.status === 'blocked' ? chalk.red : chalk.gray;
+          console.log(`  ${phase.name}: ${statusColor(phase.status)} (${phase.completion}%)`);
+          if (phase.notes) {
+            console.log(`    ${chalk.gray(phase.notes)}`);
+          }
+        });
+      }
+      
+      if (status.phases) {
+        console.log('\nPhases:');
+        status.phases.forEach((phase: any) => {
+          console.log(`  ${phase.name}:`, chalk.cyan(phase.status), `(${phase.completion}%)`);
+        });
+      }
+      
+    } catch (error) {
+      console.error(chalk.red('Failed to get status:'), error);
+    }
+  }
+
+  private async switchBackend(type: string): Promise<void> {
+    const spinner = ora(`Switching to ${type} backend`).start();
+    
+    try {
+      const result = await this.backendManager.switchBackend(type);
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+      
+      spinner.succeed(`Switched to ${type} backend successfully`);
+      
+      // Show new backend info
+      await this.backendInfo();
+    } catch (error) {
+      spinner.fail(`Failed to switch backend: ${error}`);
+    }
+  }
+
+  private async backendInfo(): Promise<void> {
+    try {
+      await this.ensureBackendInitialized();
+      const info = await this.backendManager.getBackendInfo();
+      
+      console.log(chalk.bold('\n🔧 Backend Information'));
+      console.log(chalk.gray('─'.repeat(40)));
+      console.log('Type:', chalk.cyan(info.type));
+      console.log('Status:', info.connected ? chalk.green('Connected') : chalk.red('Disconnected'));
+      
+      if (info.config) {
+        console.log('\nConfiguration:');
+        Object.entries(info.config).forEach(([key, value]) => {
+          console.log(`  ${key}:`, chalk.gray(JSON.stringify(value)));
+        });
+      }
+      
+      if (info.features) {
+        console.log('\nFeatures:');
+        info.features.forEach(feature => {
+          console.log(`  ✓ ${feature}`);
+        });
+      }
+    } catch (error) {
+      console.error(chalk.red('Failed to get backend info:'), error);
+    }
+  }
+
+  private async serveCommand(options: any): Promise<void> {
+    console.log(chalk.blue('Starting MCP server...'));
+    
+    try {
+      const serverOptions = {
+        stdio: true,
+        websocket: !options.local ? {
+          port: parseInt(options.wsPort) || 8080,
+          host: '0.0.0.0',
+          path: '/mcp',
+        } : undefined,
+        sse: !options.local ? {
+          port: parseInt(options.ssePort) || 8081,
+          host: '0.0.0.0',
+          path: '/mcp',
+        } : undefined,
+      };
+      
+      const server = new MultiTransportServer(serverOptions, process.cwd());
+      
+      // Initialize server
+      const initResult = await server.initialize();
+      if (!initResult.success) {
+        throw new Error(initResult.error.message);
+      }
+      
+      // Start server
+      const startResult = await server.start();
+      if (!startResult.success) {
+        throw new Error(startResult.error.message);
+      }
+      
+      console.log(chalk.green('✓ MCP server started successfully'));
+      
+      if (!options.local) {
+        console.log(chalk.gray(`WebSocket: ws://localhost:${options.wsPort || 8080}/mcp`));
+        console.log(chalk.gray(`SSE: http://localhost:${options.ssePort || 8081}/mcp/events`));
+      }
+      
+      // Keep server running
+      process.on('SIGINT', async () => {
+        console.log('\nShutting down server...');
+        await server.stop();
+        process.exit(0);
+      });
+      
+    } catch (error) {
+      console.error(chalk.red('Failed to start server:'), error);
+      process.exit(1);
+    }
+  }
+
+  async run(): Promise<void> {
+    await this.program.parseAsync(process.argv);
+  }
+}
+
+/**
+ * Format bytes to human readable string
+ */
+function formatBytes(bytes: number): string {
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+
+// Handle uncaught errors
+process.on('unhandledRejection', (reason) => {
   console.error(chalk.red('Unhandled Rejection:'), reason);
   process.exit(1);
 });
@@ -37,639 +667,9 @@ process.on('uncaughtException', (error) => {
   process.exit(1);
 });
 
-/**
- * Main CLI application
- */
-class KBManagerCLI {
-  private program: Command;
-  private authManager: AuthManager;
-  private configManager: ConfigManager;
-  private kbManager?: SecureKBManager;
-  private context?: SecurityContext;
-
-  constructor() {
-    this.program = new Command();
-    this.authManager = new AuthManager();
-    this.configManager = new ConfigManager();
-    
-    this.setupProgram();
-    this.setupCommands();
-  }
-
-  /**
-   * Setup the main program
-   */
-  private setupProgram(): void {
-    this.program
-      .name('kb')
-      .description('Secure, SOC2-compliant knowledge base management')
-      .version(VERSION)
-      .option('-c, --config <path>', 'Path to config file', '.kbconfig.yaml')
-      .option('-d, --debug', 'Enable debug logging')
-      .option('--no-color', 'Disable colored output')
-      .hook('preAction', async (thisCommand) => {
-        // Load configuration
-        await this.loadConfiguration(thisCommand.opts());
-        
-        // Initialize KB manager if not serving
-        if (thisCommand.name() !== 'serve') {
-          await this.initializeKBManager();
-        }
-        
-        // Authenticate user for protected commands
-        const protectedCommands = ['write', 'delete', 'audit', 'backup', 'restore', 'config'];
-        if (protectedCommands.includes(thisCommand.name() || '')) {
-          await this.authenticate();
-        }
-      });
-  }
-
-  /**
-   * Setup all commands
-   */
-  private setupCommands(): void {
-    // Initialize KB
-    this.program
-      .command('init')
-      .description('Initialize a new knowledge base')
-      .option('-t, --template <name>', 'Use a template (basic, enterprise)', 'basic')
-      .option('-e, --encrypt', 'Enable encryption at rest')
-      .option('-g, --git', 'Initialize with git versioning', true)
-      .action(async (options) => {
-        await initCommand(options, this.configManager);
-      });
-
-    // Read file
-    this.program
-      .command('read <path>')
-      .alias('cat')
-      .description('Read a knowledge base file')
-      .option('-d, --decrypt', 'Decrypt encrypted content')
-      .option('-m, --metadata', 'Show metadata only')
-      .action(async (filePath, options) => {
-        await this.readCommand(filePath, options);
-      });
-
-    // Write/Update file
-    this.program
-      .command('write <path>')
-      .alias('create')
-      .alias('update')
-      .description('Create or update a knowledge base file')
-      .option('-c, --content <text>', 'Content to write')
-      .option('-f, --file <path>', 'Read content from file')
-      .option('-t, --template <name>', 'Use a template')
-      .option('-e, --encrypt', 'Encrypt the file')
-      .option('-i, --interactive', 'Interactive mode')
-      .action(async (filePath, options) => {
-        await this.writeCommand(filePath, options);
-      });
-
-    // Delete file
-    this.program
-      .command('delete <path>')
-      .alias('rm')
-      .description('Delete a knowledge base file')
-      .option('-f, --force', 'Skip confirmation')
-      .option('--no-backup', 'Do not create backup')
-      .action(async (filePath, options) => {
-        await this.deleteCommand(filePath, options);
-      });
-
-    // List directory
-    this.program
-      .command('list [directory]')
-      .alias('ls')
-      .description('List knowledge base contents')
-      .option('-r, --recursive', 'List recursively')
-      .option('-l, --long', 'Long format with details')
-      .option('-a, --all', 'Show hidden files')
-      .action(async (directory, options) => {
-        await this.listCommand(directory || '', options);
-      });
-
-    // Search
-    this.program
-      .command('search <query>')
-      .alias('find')
-      .description('Search knowledge base content')
-      .option('-d, --directory <path>', 'Search in specific directory')
-      .option('-i, --case-insensitive', 'Case insensitive search', true)
-      .option('-l, --limit <number>', 'Maximum results', '100')
-      .option('-c, --context <lines>', 'Context lines to show', '2')
-      .action(async (query, options) => {
-        await this.searchCommand(query, options);
-      });
-
-    // Serve as MCP server
-    this.program
-      .command('serve')
-      .description('Start as MCP server')
-      .option('-p, --port <number>', 'Port to listen on', '3000')
-      .option('--stdio', 'Use stdio transport (default)')
-      .option('--websocket', 'Use WebSocket transport')
-      .option('--tls', 'Enable TLS')
-      .option('--cert <path>', 'TLS certificate path')
-      .option('--key <path>', 'TLS key path')
-      .action(async (options) => {
-        await serveCommand(options, this.configManager);
-      });
-
-    // Audit commands
-    this.program
-      .command('audit <action>')
-      .description('Audit log management (query, export, verify)')
-      .option('-f, --from <date>', 'Start date (ISO 8601)')
-      .option('-t, --to <date>', 'End date (ISO 8601)')
-      .option('-u, --user <id>', 'Filter by user')
-      .option('-e, --event <type>', 'Filter by event type')
-      .option('--format <type>', 'Export format (json, csv)', 'json')
-      .option('-o, --output <file>', 'Output file')
-      .action(async (action, options) => {
-        await this.auditCommand(action, options);
-      });
-
-    // Configuration management
-    this.program
-      .command('config <action> [key] [value]')
-      .description('Manage configuration (get, set, list)')
-      .option('-g, --global', 'Use global config')
-      .option('-s, --secure', 'Encrypt sensitive values')
-      .action(async (action, key, value, options) => {
-        await this.configCommand(action, key, value, options);
-      });
-
-    // Backup
-    this.program
-      .command('backup')
-      .description('Create a backup of the knowledge base')
-      .option('-o, --output <path>', 'Backup file path')
-      .option('-e, --encrypt', 'Encrypt backup')
-      .option('-i, --incremental', 'Incremental backup')
-      .option('--compress', 'Compress backup', true)
-      .action(async (options) => {
-        await this.backupCommand(options);
-      });
-
-    // Restore
-    this.program
-      .command('restore <backup>')
-      .description('Restore from backup')
-      .option('-t, --target <path>', 'Restore to specific path')
-      .option('-f, --force', 'Overwrite existing files')
-      .option('--verify', 'Verify backup integrity first', true)
-      .action(async (backupPath, options) => {
-        await this.restoreCommand(backupPath, options);
-      });
-
-    // Export
-    this.program
-      .command('export')
-      .description('Export knowledge base')
-      .option('-f, --format <type>', 'Export format (json, yaml, markdown)', 'json')
-      .option('-o, --output <path>', 'Output file')
-      .option('-e, --encrypt', 'Encrypt export')
-      .option('--include-audit', 'Include audit logs')
-      .action(async (options) => {
-        await this.exportCommand(options);
-      });
-
-    // Import
-    this.program
-      .command('import <file>')
-      .description('Import knowledge base')
-      .option('-f, --format <type>', 'Import format (json, yaml, markdown)')
-      .option('--merge', 'Merge with existing content')
-      .option('--validate', 'Validate before import', true)
-      .action(async (file, options) => {
-        await this.importCommand(file, options);
-      });
-
-    // Authentication
-    this.program
-      .command('auth <action>')
-      .description('Authentication management (login, logout, status)')
-      .option('-u, --username <name>', 'Username')
-      .option('-p, --password <pass>', 'Password (not recommended)')
-      .option('--mfa <code>', 'MFA code')
-      .option('--api-key', 'Use API key authentication')
-      .action(async (action, options) => {
-        await this.handleAuth(action, options);
-      });
-
-    // Update command
-    this.program
-      .command('update <action>')
-      .description('Self-update management (check, install, config)')
-      .option('-y, --yes', 'Skip confirmation prompts')
-      .option('--channel <name>', 'Update channel (stable, beta, alpha)', 'stable')
-      .option('--prerelease', 'Include pre-release versions')
-      .option('--show', 'Show current update configuration')
-      .option('--enable <bool>', 'Enable/disable auto-updates')
-      .option('--interval <hours>', 'Update check interval in hours')
-      .action(async (action, options) => {
-        await updateCommand(action, options);
-      });
-
-    // Database management
-    this.program
-      .command('db <action>')
-      .description('Database management (start, stop, status, reset, logs)')
-      .option('--no-start', 'Don\'t auto-start after reset')
-      .option('-f, --follow', 'Follow log output')
-      .option('--tail <lines>', 'Number of log lines to show', '100')
-      .option('--service <name>', 'Show logs for specific service (falkordb, redis)')
-      .action(async (action, options) => {
-        await dbCommand(action, options);
-      });
-
-    // Version command
-    this.program
-      .command('version')
-      .description('Show version information')
-      .action(() => {
-        console.log(`KB-MCP version ${VERSION}`);
-        console.log(`Node.js ${process.version}`);
-        console.log(`Platform: ${process.platform} ${process.arch}`);
-      });
-  }
-
-  /**
-   * Load configuration
-   */
-  private async loadConfiguration(options: any): Promise<void> {
-    const spinner = ora('Loading configuration').start();
-    
-    try {
-      // Load from file or defaults
-      await this.configManager.load(options.config);
-      
-      // Apply CLI options
-      if (options.debug) {
-        this.configManager.set('logging.level', 'debug');
-      }
-      
-      spinner.succeed('Configuration loaded');
-    } catch (error) {
-      spinner.fail(`Failed to load configuration: ${error}`);
-      process.exit(1);
-    }
-  }
-
-  /**
-   * Initialize KB manager
-   */
-  private async initializeKBManager(): Promise<void> {
-    const config = this.configManager.getConfig();
-    const kbPath = config.storage?.path || path.join(process.cwd(), 'kb');
-    
-    this.kbManager = new SecureKBManager({
-      kbPath,
-      encryptionKey: config.security?.encryption?.key,
-      enableAudit: config.compliance?.audit?.enabled ?? true,
-      enableVersioning: config.storage?.versioning ?? true,
-      enableEncryption: config.storage?.encryption_at_rest ?? false,
-      rateLimiting: config.security?.rate_limiting,
-    });
-    
-    // Initialize if needed
-    const initialized = await this.kbManager.initialize();
-    if (!initialized.success) {
-      console.error(chalk.red('Failed to initialize KB manager:'), initialized.error);
-      process.exit(1);
-    }
-  }
-
-  /**
-   * Authenticate user
-   */
-  private async authenticate(): Promise<void> {
-    const spinner = ora('Authenticating').start();
-    
-    try {
-      // Check for existing session
-      const session = await this.authManager.getSession();
-      if (session && !session.expired) {
-        this.context = session.context;
-        spinner.succeed('Authenticated');
-        return;
-      }
-      
-      // Prompt for credentials
-      spinner.stop();
-      const answers = await inquirer.prompt([
-        {
-          type: 'input',
-          name: 'username',
-          message: 'Username:',
-          validate: (input) => input.length > 0,
-        },
-        {
-          type: 'password',
-          name: 'password',
-          message: 'Password:',
-          mask: '*',
-          validate: (input) => input.length > 0,
-        },
-      ]);
-      
-      // Check if MFA is required
-      const config = this.configManager.getConfig();
-      if (config.security?.authentication?.mfa_required) {
-        const mfaAnswer = await inquirer.prompt([
-          {
-            type: 'input',
-            name: 'mfaCode',
-            message: 'MFA Code:',
-            validate: (input) => /^\d{6}$/.test(input),
-          },
-        ]);
-        answers.mfaCode = mfaAnswer.mfaCode;
-      }
-      
-      spinner.start('Authenticating');
-      
-      // Authenticate
-      const result = await this.authManager.authenticate(
-        answers.username,
-        answers.password,
-        answers.mfaCode
-      );
-      
-      if (!result.success) {
-        spinner.fail('Authentication failed');
-        process.exit(1);
-      }
-      
-      this.context = result.context;
-      spinner.succeed('Authenticated successfully');
-    } catch (error) {
-      spinner.fail(`Authentication error: ${error}`);
-      process.exit(1);
-    }
-  }
-
-  /**
-   * Handle auth command
-   */
-  private async handleAuth(action: string, options: any): Promise<void> {
-    switch (action) {
-      case 'login':
-        await this.authManager.login(options);
-        break;
-      
-      case 'logout':
-        await this.authManager.logout();
-        console.log(chalk.green('Logged out successfully'));
-        break;
-      
-      case 'status':
-        const session = await this.authManager.getSession();
-        if (session && !session.expired) {
-          console.log(chalk.green('Authenticated as:'), session.context.user_id);
-          console.log(chalk.gray('Session expires:'), new Date(session.expiresAt));
-        } else {
-          console.log(chalk.yellow('Not authenticated'));
-        }
-        break;
-      
-      default:
-        console.error(chalk.red(`Unknown auth action: ${action}`));
-        process.exit(1);
-    }
-  }
-
-  /**
-   * Read command implementation
-   */
-  private async readCommand(filePath: string, options: any): Promise<void> {
-    const spinner = ora(`Reading ${filePath}`).start();
-    try {
-      const result = await this.kbManager!.readFile(filePath);
-      spinner.stop();
-      
-      if (!result.success) {
-        console.error(chalk.red('Error:'), result.error);
-        return;
-      }
-      
-      if (options.metadata) {
-        console.log(chalk.blue('Metadata:'), JSON.stringify(result.data.metadata, null, 2));
-      } else {
-        console.log(result.data.content);
-      }
-    } catch (error) {
-      spinner.fail(`Failed to read ${filePath}: ${error}`);
-    }
-  }
-
-  /**
-   * Write command implementation
-   */
-  private async writeCommand(filePath: string, options: any): Promise<void> {
-    let content = '';
-    
-    if (options.content) {
-      content = options.content;
-    } else if (options.file) {
-      const contentBuffer = await fs.readFile(options.file);
-      content = contentBuffer.toString();
-    } else if (options.interactive) {
-      const answer = await inquirer.prompt([{
-        type: 'editor',
-        name: 'content',
-        message: 'Enter content:'
-      }]);
-      content = answer.content;
-    } else {
-      console.error(chalk.red('Error: Must provide content via --content, --file, or --interactive'));
-      return;
-    }
-    
-    const spinner = ora(`Writing ${filePath}`).start();
-    try {
-      const result = await this.kbManager!.writeFile(filePath, content);
-      if (result.success) {
-        spinner.succeed(`File ${filePath} written successfully`);
-      } else {
-        spinner.fail(`Failed to write ${filePath}: ${result.error}`);
-      }
-    } catch (error) {
-      spinner.fail(`Failed to write ${filePath}: ${error}`);
-    }
-  }
-
-  /**
-   * Delete command implementation
-   */
-  private async deleteCommand(filePath: string, options: any): Promise<void> {
-    if (!options.force) {
-      const answer = await inquirer.prompt([{
-        type: 'confirm',
-        name: 'confirm',
-        message: `Are you sure you want to delete ${filePath}?`,
-        default: false
-      }]);
-      
-      if (!answer.confirm) {
-        console.log(chalk.yellow('Delete cancelled'));
-        return;
-      }
-    }
-    
-    const spinner = ora(`Deleting ${filePath}`).start();
-    try {
-      const result = await this.kbManager!.deleteFile(filePath);
-      if (result.success) {
-        spinner.succeed(`File ${filePath} deleted successfully`);
-      } else {
-        spinner.fail(`Failed to delete ${filePath}: ${result.error}`);
-      }
-    } catch (error) {
-      spinner.fail(`Failed to delete ${filePath}: ${error}`);
-    }
-  }
-
-  /**
-   * List command implementation
-   */
-  private async listCommand(directory: string, options: any): Promise<void> {
-    const spinner = ora(`Listing ${directory || 'root'}`).start();
-    try {
-      const result = await this.kbManager!.listFiles(directory);
-      spinner.stop();
-      
-      if (!result.success) {
-        console.error(chalk.red('Error:'), result.error);
-        return;
-      }
-      
-      console.log(chalk.blue(`\nContents of ${directory || 'root'}:`));
-      result.data.files.forEach((file: any) => {
-        if (options.long) {
-          console.log(`${file.path.padEnd(30)} ${file.size.toString().padStart(10)} ${file.modified}`);
-        } else {
-          console.log(file.path);
-        }
-      });
-      
-      console.log(chalk.gray(`\nTotal: ${result.data.total_files} files`));
-    } catch (error) {
-      spinner.fail(`Failed to list ${directory}: ${error}`);
-    }
-  }
-
-  /**
-   * Search command implementation
-   */
-  private async searchCommand(query: string, options: any): Promise<void> {
-    const spinner = ora(`Searching for "${query}"`).start();
-    try {
-      const result = await this.kbManager!.searchContent(query, {
-        limit: parseInt(options.limit),
-        category: options.category,
-        includeContent: true
-      });
-      spinner.stop();
-      
-      if (!result.success) {
-        console.error(chalk.red('Error:'), result.error);
-        return;
-      }
-      
-      console.log(chalk.blue(`\nSearch results for "${query}":`));
-      result.data.forEach((item: any, index: number) => {
-        console.log(`\n${index + 1}. ${chalk.yellow(item.file.path)} (score: ${item.score})`);
-        if (item.snippet) {
-          console.log(chalk.gray(item.snippet));
-        }
-      });
-      
-      console.log(chalk.gray(`\nTotal: ${result.data.length} results`));
-    } catch (error) {
-      spinner.fail(`Search failed: ${error}`);
-    }
-  }
-
-  /**
-   * Audit command implementation
-   */
-  private async auditCommand(action: string, options: any): Promise<void> {
-    console.log(chalk.yellow(`Audit ${action} not implemented yet`));
-  }
-
-  /**
-   * Config command implementation
-   */
-  private async configCommand(action: string, key: string, value: string, options: any): Promise<void> {
-    switch (action) {
-      case 'get':
-        if (key) {
-          const val = this.configManager.get(key);
-          console.log(val);
-        } else {
-          console.log(JSON.stringify(this.configManager.getConfig(), null, 2));
-        }
-        break;
-      
-      case 'set':
-        if (!key || value === undefined) {
-          console.error(chalk.red('Error: key and value are required for set'));
-          return;
-        }
-        this.configManager.set(key, value);
-        await this.configManager.save();
-        console.log(chalk.green(`Set ${key} = ${value}`));
-        break;
-      
-      case 'list':
-        console.log(JSON.stringify(this.configManager.getConfig(), null, 2));
-        break;
-      
-      default:
-        console.error(chalk.red(`Unknown config action: ${action}`));
-    }
-  }
-
-  /**
-   * Backup command implementation
-   */
-  private async backupCommand(options: any): Promise<void> {
-    console.log(chalk.yellow('Backup command not implemented yet'));
-  }
-
-  /**
-   * Restore command implementation
-   */
-  private async restoreCommand(backupPath: string, options: any): Promise<void> {
-    console.log(chalk.yellow('Restore command not implemented yet'));
-  }
-
-  /**
-   * Export command implementation
-   */
-  private async exportCommand(options: any): Promise<void> {
-    console.log(chalk.yellow('Export command not implemented yet'));
-  }
-
-  /**
-   * Import command implementation
-   */
-  private async importCommand(file: string, options: any): Promise<void> {
-    console.log(chalk.yellow('Import command not implemented yet'));
-  }
-
-  /**
-   * Run the CLI
-   */
-  async run(): Promise<void> {
-    await this.program.parseAsync(process.argv);
-  }
-}
-
 // Run the CLI
-const cli = new KBManagerCLI();
+const cli = new UnifiedKBCLI();
 cli.run().catch((error) => {
-  console.error(chalk.red('Fatal error:'), error);
+  console.error(chalk.red('CLI Error:'), error);
   process.exit(1);
 });

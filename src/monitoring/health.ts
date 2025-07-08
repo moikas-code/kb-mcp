@@ -8,7 +8,7 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import { SecureKBManager } from '@core/secure-kb-manager.js';
 import { AuditLogger } from '@core/audit.js';
-import { HealthStatus, HealthCheck } from '@types/index.js';
+import { HealthStatus, HealthCheck } from '../types/index.js';
 
 export interface HealthCheckOptions {
   checkInterval?: number;  // ms between checks

@@ -5,7 +5,7 @@
 
 import { register, Counter, Histogram, Gauge, Summary } from 'prom-client';
 import { EventEmitter } from 'events';
-import { Metric } from '@types/index.js';
+import { Metric } from '../types/index.js';
 
 export interface MetricsConfig {
   enabled?: boolean;

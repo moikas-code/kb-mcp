@@ -5,7 +5,7 @@
 
 import { UnifiedMemory, UnifiedMemoryConfig } from '@graph/index.js';
 import { Node, NodeType, SearchOptions, GraphQueryResult } from '@graph/types.js';
-import { Result } from '@types/index.js';
+import { Result } from '../types/index.js';
 import { KBFile, KBDirectory, SearchResult, KBCategory, KB_CATEGORIES } from './types.js';
 
 export class GraphKBManager {

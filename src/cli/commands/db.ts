@@ -93,11 +93,11 @@ async function startDatabase(options: any): Promise<void> {
     console.log(chalk.gray('─'.repeat(40)));
     console.log('FalkorDB:');
     console.log('  Host:', chalk.cyan('localhost'));
-    console.log('  Port:', chalk.cyan(status.port || status.connection?.port || 3000s.falkordb));
+    console.log('  Port:', chalk.cyan(status.port || status.connection?.port || '6380'));
     console.log('  Password:', chalk.cyan(`dev_${status.projectId}`));
     console.log('\nRedis:');
     console.log('  Host:', chalk.cyan('localhost'));
-    console.log('  Port:', chalk.cyan(status.port || status.connection?.port || 3000s.redis));
+    console.log('  Port:', chalk.cyan(status.port || status.connection?.port || '6379'));
     console.log('  Password:', chalk.cyan(`dev_${status.projectId}`));
     console.log('\n' + chalk.gray('These settings have been saved to your .kbconfig.yaml'));
     

@@ -6,17 +6,17 @@
 
 import crypto from 'crypto';
 import { createHash, randomBytes } from 'crypto';
-import CryptoJS from 'crypto-js';
+// import CryptoJS from 'crypto-js';
 import bcrypt from 'bcrypt';
 import { z } from 'zod';
 import DOMPurify from 'isomorphic-dompurify';
-import { KBError, EncryptedData, SecurityContext } from '@types/index.js';
+import { KBError, EncryptedData, SecurityContext } from '../types/index.js';
 
 // Security constants
 const ENCRYPTION_ALGORITHM = 'aes-256-gcm';
 const KEY_LENGTH = 32;
 const IV_LENGTH = 16;
-const TAG_LENGTH = 16;
+// const TAG_LENGTH = 16;
 const SALT_ROUNDS = 12;
 const MAX_PATH_LENGTH = 255;
 const ALLOWED_EXTENSIONS = ['.md', '.markdown'];
@@ -170,7 +170,7 @@ export class SecurityValidator {
  * Encryption service for data protection
  */
 export class EncryptionService {
-  private static keyCache = new Map<string, Buffer>();
+  // private static keyCache = new Map<string, Buffer>();
   
   /**
    * Generate encryption key from password
@@ -352,7 +352,7 @@ export class RateLimiter {
     
     // Remove old timestamps outside the window
     const validTimestamps = timestamps.filter(
-      ts => now - ts < windowMs
+      (ts: number) => now - ts < windowMs
     );
     
     // Check if limit exceeded

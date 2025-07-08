@@ -6,7 +6,7 @@
 import { Tool } from '@modelcontextprotocol/sdk/types.js';
 import { SecureKBManager } from '@core/secure-kb-manager.js';
 import { AuditLogger } from '@core/audit.js';
-import { SecurityContext, AuditEvent } from '@types/index.js';
+import { SecurityContext, AuditEvent } from '../types/index.js';
 import { SecurityValidator, Sanitizers } from '@core/security.js';
 
 /**

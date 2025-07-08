@@ -13,7 +13,7 @@ import {
   SecurityContext, 
   ComplianceConfig,
   Result
-} from '@types/index.js';
+} from '../types/index.js';
 import { EncryptionService } from './security.js';
 
 // Audit log format version
