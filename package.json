@@ -1,6 +1,6 @@
 {
   "name": "@moikas/kb-mcp",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Knowledge base management system with MCP server and CLI - Security frameworks ready for enterprise deployment",
   "repository": {
     "type": "git",
