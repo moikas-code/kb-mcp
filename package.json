@@ -13,8 +13,8 @@
   "main": "dist/index.js",
   "type": "module",
   "bin": {
-    "kb": "./dist/cli/standalone-cli.js",
-    "kb-mcp": "./dist/cli/standalone-cli.js"
+    "kb": "dist/cli/standalone-cli.js",
+    "kb-mcp": "dist/cli/standalone-cli.js"
   },
   "files": [
     "dist/",
