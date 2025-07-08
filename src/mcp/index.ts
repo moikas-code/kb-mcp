@@ -111,8 +111,8 @@ async function main() {
     console.error(`Health check: http://localhost:${ssePort}/mcp/health`);
     
     if (oauth2Config.enabled) {
-      console.error(`OAuth2 server: http://localhost:${oauth2Config.port || oauth2Config.connection?.port || 3000 || 3000}/oauth2/`);
-      console.error(`OAuth2 health: http://localhost:${oauth2Config.port || oauth2Config.connection?.port || 3000 || 3000}/oauth2/health`);
+      console.error(`OAuth2 server: http://localhost:3000/oauth2/`);
+      console.error(`OAuth2 health: http://localhost:3000/oauth2/health`);
       console.error('OAuth2 authentication enabled - obtain token from OAuth2 endpoints');
     } else if (authSecret) {
       console.error('Simple authentication enabled - use Authorization: Bearer <secret>');

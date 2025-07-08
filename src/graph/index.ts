@@ -24,9 +24,13 @@ export { WorkingMemory } from './working-memory.js';
 // Unified memory system
 export { UnifiedMemory, type UnifiedMemoryConfig } from './unified-memory.js';
 
+// Import types for local use
+import type { FalkorDBConfig as _FalkorDBConfig } from './connection.js';
+import { UnifiedMemory as _UnifiedMemory } from './unified-memory.js';
+
 // Factory function for easy initialization
-export async function createMemorySystem(config: FalkorDBConfig) {
-  const memory = new UnifiedMemory(config);
+export async function createMemorySystem(config: _FalkorDBConfig) {
+  const memory = new _UnifiedMemory(config);
   const result = await memory.initialize();
   
   if (!result.success) {
@@ -37,7 +41,7 @@ export async function createMemorySystem(config: FalkorDBConfig) {
 }
 
 // Default configuration
-export const defaultConfig: Partial<FalkorDBConfig> = {
+export const defaultConfig: Partial<_FalkorDBConfig> = {
   host: 'localhost',
   port: 6379,
   graph_name: 'knowledge_graph',
