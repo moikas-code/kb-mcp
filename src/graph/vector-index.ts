@@ -5,7 +5,7 @@
 
 import { Result } from '../types/index.js';
 import { Node } from './types.js';
-import { cosine } from 'ml-distance';
+import distance from 'ml-distance';
 import { toKBError } from '../types/error-utils.js';
 
 interface VectorIndexConfig {
@@ -247,7 +247,7 @@ export class VectorIndex {
       
       for (const vector of batch) {
         const similarity = this.config.metric === 'cosine'
-          ? 1 - cosine(queryEmbedding, vector.embedding)
+          ? distance.similarity.cosine(queryEmbedding, vector.embedding)
           : this.computeEuclideanSimilarity(queryEmbedding, vector.embedding);
 
         if (similarity >= threshold) {

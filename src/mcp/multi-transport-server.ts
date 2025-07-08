@@ -238,7 +238,8 @@ export class MultiTransportServer {
       const wsOptions = {
         ...this.options.websocket,
         authentication: {
-          ...this.options.authentication,
+          enabled: this.options.authentication?.enabled ?? false,
+          secret: this.options.authentication?.secret,
           validateToken: this.oauth2Provider ? 
             (token: string) => this.oauth2Provider!.verifyToken(token).then(r => r.success) :
             this.options.authentication?.validateToken
@@ -246,7 +247,7 @@ export class MultiTransportServer {
       };
       
       this.transports.websocket = new WebSocketTransport(wsOptions, this.mcpServer);
-      this.logger.info(`WebSocket transport initialized on port ${wsOptions.port || wsOptions.connection?.port || 3000}`);
+      this.logger.info(`WebSocket transport initialized on port ${wsOptions.port || 3000}`);
     }
 
     // Initialize SSE transport
@@ -254,7 +255,8 @@ export class MultiTransportServer {
       const sseOptions = {
         ...this.options.sse,
         authentication: {
-          ...this.options.authentication,
+          enabled: this.options.authentication?.enabled ?? false,
+          secret: this.options.authentication?.secret,
           validateToken: this.oauth2Provider ? 
             (token: string) => this.oauth2Provider!.verifyToken(token).then(r => r.success) :
             this.options.authentication?.validateToken
@@ -262,7 +264,7 @@ export class MultiTransportServer {
       };
       
       this.transports.sse = new SSETransport(sseOptions, this.mcpServer);
-      this.logger.info(`SSE transport initialized on port ${sseOptions.port || sseOptions.connection?.port || 3000}`);
+      this.logger.info(`SSE transport initialized on port ${sseOptions.port || 3000}`);
     }
   }
 

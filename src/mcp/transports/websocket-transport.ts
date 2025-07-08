@@ -49,7 +49,7 @@ export class WebSocketTransport implements Transport {
     });
 
     this.wss = new WebSocketServer({
-      port: options.port || options.connection?.port || 3000,
+      port: options.port || 3000,
       host: options.host || 'localhost',
       path: options.path || '/mcp',
       maxPayload: 1024 * 1024 * 10, // 10MB max payload
@@ -63,7 +63,7 @@ export class WebSocketTransport implements Transport {
     this.wss.on('connection', this.handleConnection.bind(this));
     this.wss.on('error', this.handleError.bind(this));
     this.wss.on('listening', () => {
-      this.logger.info(`WebSocket MCP server listening on ${this.options.host || 'localhost'}:${this.options.port || options.connection?.port || 3000}${this.options.path || '/mcp'}`);
+      this.logger.info(`WebSocket MCP server listening on ${this.options.host || 'localhost'}:${this.options.port || 3000}${this.options.path || '/mcp'}`);
     });
 
     // Setup heartbeat
@@ -314,7 +314,7 @@ export class WebSocketTransport implements Transport {
       activeConnections: Array.from(this.wss.clients).filter(ws => ws.readyState === WebSocket.OPEN).length,
       clients: clientStats,
       uptime: now - this.startTime,
-      port: this.options.port || options.connection?.port || 3000,
+      port: this.options.port || 3000,
       host: this.options.host || 'localhost',
       path: this.options.path || '/mcp'
     };

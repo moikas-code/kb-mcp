@@ -489,7 +489,7 @@ export class VectorMemory implements IVectorMemory {
     if (!result.data?.[0] || !result.data[0].embedding) {
       return {
         success: false,
-        error: 'Node not found or has no embedding',
+        error: toKBError(new Error('Node not found or has no embedding'), { operation: 'VectorMemory.findSimilar' }),
       };
     }
 

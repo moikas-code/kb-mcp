@@ -269,8 +269,8 @@ export class MemoryManager extends EventEmitter {
    */
   getReport(): {
     current: MemoryStats;
-    trend: ReturnType<typeof this.getTrend>;
-    leakDetection: ReturnType<typeof this.detectLeaks>;
+    trend: ReturnType<MemoryManager['getTrend']>;
+    leakDetection: ReturnType<MemoryManager['detectLeaks']>;
     thresholds: MemoryThresholds;
     historyCount: number;
   } {

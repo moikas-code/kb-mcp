@@ -101,7 +101,7 @@ export class FalkorDBConnectionPool {
       this.isInitialized = true;
       
       this.logger.info('Connection pool initialized', {
-        port: this.config.port || this.config.connection?.port || 3000,
+        port: this.config.port,
         graph: this.config.graph_name,
         pool_config: this.config.pool,
       });
@@ -335,7 +335,7 @@ export class FalkorDBConnectionPool {
       url: undefined,
       socket: {
         host: this.config.host,
-        port: this.config.port || this.config.connection?.port || 3000,
+        port: this.config.port,
       },
       password: this.config.password,
     });
