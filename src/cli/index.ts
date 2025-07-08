@@ -150,10 +150,44 @@ class UnifiedKBCLI {
       });
 
     // Database command
-    dbCommand(this.program);
+    const db = this.program
+      .command('db')
+      .description('Manage local graph database');
+    
+    db.command('start')
+      .description('Start local FalkorDB instance')
+      .action(async () => {
+        await dbCommand('start', {});
+      });
+    
+    db.command('stop')
+      .description('Stop local FalkorDB instance')
+      .action(async () => {
+        await dbCommand('stop', {});
+      });
+    
+    db.command('status')
+      .description('Check database status')
+      .action(async () => {
+        await dbCommand('status', {});
+      });
 
     // Update command
-    updateCommand(this.program);
+    const update = this.program
+      .command('update')
+      .description('Update KB-MCP CLI');
+    
+    update.command('check')
+      .description('Check for updates')
+      .action(async () => {
+        await updateCommand('check', { version: VERSION });
+      });
+    
+    update.command('install')
+      .description('Install latest version')
+      .action(async () => {
+        await updateCommand('install', { version: VERSION });
+      });
 
     // Version command
     this.program
