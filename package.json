@@ -13,8 +13,8 @@
   "main": "dist/index.js",
   "type": "module",
   "bin": {
-    "kb": "./dist/cli/basic-cli.js",
-    "kb-mcp": "./dist/cli/basic-cli.js"
+    "kb": "./dist/cli/standalone-cli.js",
+    "kb-mcp": "./dist/cli/standalone-cli.js"
   },
   "files": [
     "dist/",
@@ -36,7 +36,7 @@
     "type-check": "tsc --noEmit",
     "audit": "npm audit --production",
     "prepublishOnly": "npm run build",
-    "version": "npx tsc src/cli/basic-cli.ts --outDir dist --module ESNext --target ES2022 --moduleResolution bundler --esModuleInterop --allowSyntheticDefaultImports --strict --skipLibCheck",
+    "version": "npx tsc src/cli/standalone-cli.ts --outDir dist --module ESNext --target ES2022 --moduleResolution node --esModuleInterop --allowSyntheticDefaultImports --skipLibCheck --resolveJsonModule && mv dist/standalone-cli.js dist/cli/standalone-cli.js && chmod +x dist/cli/standalone-cli.js",
     "postversion": "git push && git push --tags",
     "release": "npm version patch && npm publish",
     "release:minor": "npm version minor && npm publish",

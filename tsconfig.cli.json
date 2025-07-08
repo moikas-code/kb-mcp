@@ -1,0 +1,32 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext", 
+    "lib": ["ES2022"],
+    "moduleResolution": "node",
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "strict": false,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": false,
+    "declaration": false,
+    "sourceMap": false,
+    "allowSyntheticDefaultImports": true,
+    "noEmitOnError": false
+  },
+  "include": [
+    "src/cli/basic-cli.ts",
+    "src/types/**/*",
+    "src/core/config.ts",
+    "src/core/filesystem-backend.ts",
+    "src/updater/github-updater.ts"
+  ],
+  "exclude": [
+    "**/*.test.ts",
+    "**/*.spec.ts"
+  ]
+}
