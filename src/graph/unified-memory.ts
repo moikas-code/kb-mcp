@@ -199,7 +199,7 @@ export class UnifiedMemory extends EventEmitter implements IUnifiedMemory {
     }
   ): Promise<Result<GraphQueryResult>> {
     try {
-      const results: GraphQueryResult[] = [];
+      // const results: GraphQueryResult[] = [];
       
       // Default to using all search types
       const useVector = options?.useVector ?? true;
@@ -249,8 +249,7 @@ export class UnifiedMemory extends EventEmitter implements IUnifiedMemory {
       
       // Rank and filter results
       const rankedNodes = await this.rankResults(
-        Array.from(allNodes.values()),
-        query
+        Array.from(allNodes.values())
       );
       
       return {
@@ -583,7 +582,7 @@ export class UnifiedMemory extends EventEmitter implements IUnifiedMemory {
   /**
    * Rank search results
    */
-  private async rankResults(nodes: Node[], query: string): Promise<Node[]> {
+  private async rankResults(nodes: Node[]): Promise<Node[]> {
     // Simple ranking based on multiple factors
     return nodes.sort((a, b) => {
       let scoreA = 0;
@@ -716,18 +715,18 @@ export class UnifiedMemory extends EventEmitter implements IUnifiedMemory {
    */
   private async mergeSimilarMemories(): Promise<void> {
     // Find highly similar memories
-    const cypher = `
-      MATCH (m1:Memory), (m2:Memory)
-      WHERE id(m1) < id(m2)
-        AND m1.memory_type = m2.memory_type
-        AND m1.embedding IS NOT NULL
-        AND m2.embedding IS NOT NULL
-      WITH m1, m2,
-           gds.alpha.similarity.cosine(m1.embedding, m2.embedding) as similarity
-      WHERE similarity > 0.95
-      RETURN m1, m2, similarity
-      LIMIT 20
-    `;
+    // const cypher = `
+    //   MATCH (m1:Memory), (m2:Memory)
+    //   WHERE id(m1) < id(m2)
+    //     AND m1.memory_type = m2.memory_type
+    //     AND m1.embedding IS NOT NULL
+    //     AND m2.embedding IS NOT NULL
+    //   WITH m1, m2,
+    //        gds.alpha.similarity.cosine(m1.embedding, m2.embedding) as similarity
+    //   WHERE similarity > 0.95
+    //   RETURN m1, m2, similarity
+    //   LIMIT 20
+    // `;
     
     // Note: This uses Neo4j GDS syntax - adapt for FalkorDB
     // For now, skip implementation
@@ -866,7 +865,7 @@ export class UnifiedMemory extends EventEmitter implements IUnifiedMemory {
   /**
    * Import from GraphML
    */
-  private async importGraphML(data: string): Promise<Result<void>> {
+  private async importGraphML(_data: string): Promise<Result<void>> {
     // GraphML import implementation
     return {
       success: false,

@@ -48,18 +48,18 @@ interface SSEClient {
 export class SSETransport implements Transport {
   private app: express.Application;
   private server: any;
-  private mcpServer: Server;
+  // private mcpServer: Server;
   private clients: Map<string, SSEClient> = new Map();
   private logger: winston.Logger;
   private rateLimiter?: RateLimiterMemory;
   private heartbeatInterval?: NodeJS.Timeout;
-  private pendingRequests: Map<string, express.Response> = new Map();
+  // private pendingRequests: Map<string, express.Response> = new Map();
 
   constructor(
     private options: SSETransportOptions,
-    mcpServer: Server
+    _mcpServer: Server
   ) {
-    this.mcpServer = mcpServer;
+    // this.mcpServer = mcpServer;
     this.logger = winston.createLogger({
       level: 'info',
       format: winston.format.combine(
@@ -117,7 +117,7 @@ export class SSETransport implements Transport {
         if (!this.rateLimiter) return next();
         
         try {
-          await this.rateLimiter.consume(req.ip);
+          await this.rateLimiter.consume(req.ip || '');
           next();
         } catch (rejRes) {
           res.status(429).json({
@@ -133,7 +133,7 @@ export class SSETransport implements Transport {
     this.app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
     // Logging
-    this.app.use((req, res, next) => {
+    this.app.use((req, _res, next) => {
       this.logger.debug(`${req.method} ${req.path} from ${req.ip}`);
       next();
     });
@@ -149,7 +149,7 @@ export class SSETransport implements Transport {
     this.app.post(`${basePath}/message`, this.handleHTTPMessage.bind(this));
 
     // Health check endpoint
-    this.app.get(`${basePath}/health`, (req, res) => {
+    this.app.get(`${basePath}/health`, (_req, res) => {
       res.json({
         status: 'healthy',
         timestamp: new Date().toISOString(),
@@ -159,12 +159,12 @@ export class SSETransport implements Transport {
     });
 
     // Stats endpoint
-    this.app.get(`${basePath}/stats`, (req, res) => {
+    this.app.get(`${basePath}/stats`, (_req, res) => {
       res.json(this.getStats());
     });
 
     // Error handling
-    this.app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
+    this.app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
       this.logger.error('Express error:', err);
       res.status(500).json({
         error: 'Internal Server Error',

@@ -3,7 +3,7 @@
  * Handles vector embeddings and semantic search
  */
 
-import { pipeline, Pipeline } from '@xenova/transformers';
+import { pipeline } from '@xenova/transformers';
 // Import not needed - using vector index instead
 import { IVectorMemory } from './interfaces.js';
 import { FalkorDBConnection } from './connection.js';
@@ -16,7 +16,7 @@ import { toKBError } from '../types/error-utils.js';
 
 export class VectorMemory implements IVectorMemory {
   private connection: FalkorDBConnection;
-  private embeddingModel: Pipeline | null = null;
+  private embeddingModel: any | null = null;
   private modelName: string = 'Xenova/all-MiniLM-L6-v2';
   private vectorDimension: number = 384;
   private initPromise: Promise<void> | null = null;
@@ -247,7 +247,10 @@ export class VectorMemory implements IVectorMemory {
    */
   async update(nodeId: string, updates: Partial<Node>): Promise<Result<Node>> {
     // If content is updated, regenerate embedding
-    if (updates.content && typeof updates.content === 'string') {
+    if ('description' in updates && updates.description && typeof updates.description === 'string') {
+      const embedding = await this.generateEmbedding(updates.description);
+      updates.embedding = embedding;
+    } else if ('content' in updates && updates.content && typeof updates.content === 'string') {
       const embedding = await this.generateEmbedding(updates.content);
       updates.embedding = embedding;
     }

@@ -15,7 +15,6 @@ import { toKBError } from '../types/error-utils.js';
 
 export class FilesystemBackend implements StorageBackend {
   private readonly kbPath: string;
-  private __initialized = false;
 
   constructor(private config: BackendConfig) {
     if (config.type !== 'filesystem') {
@@ -27,12 +26,10 @@ export class FilesystemBackend implements StorageBackend {
   async initialize(): Promise<Result<void>> {
     try {
       await fs.access(this.kbPath);
-              this.__initialized = true;
       return { success: true, data: undefined };
     } catch (error) {
       try {
         await fs.mkdir(this.kbPath, { recursive: true });
-        this.__initialized = true;
         return { success: true, data: undefined };
       } catch (mkdirError) {
         return {
@@ -366,11 +363,11 @@ export class FilesystemBackend implements StorageBackend {
   async getStatus(): Promise<Result<ImplementationStatus>> {
     try {
       // Read status files to determine implementation status
-      const __statusFiles = [
-        'status/OVERALL_STATUS.md',
-        'status/ERROR_HANDLING_STATUS.md',
-        'active/KNOWN_ISSUES.md'
-      ];
+      // const statusFiles = [
+      //   'status/OVERALL_STATUS.md',
+      //   'status/ERROR_HANDLING_STATUS.md',
+      //   'active/KNOWN_ISSUES.md'
+      // ];
       
       let overallCompletion = 80; // Default based on Script language status
       const phases = [

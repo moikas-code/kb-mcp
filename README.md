@@ -10,6 +10,9 @@ A knowledge base management system that works as both a CLI tool and MCP (Model 
 ## 🌟 Key Features
 
 ### Security & Compliance
+
+> **Disclaimer:** While most security and compliance features described below are implemented in the codebase, some are not fully production-ready due to critical bugs or partial implementations (see the audit report in `docs/COMPREHENSIVE_AUDIT_REPORT.md`). Users are strongly advised to review the audit findings and address any outstanding issues before deploying in a production environment.
+
 - 🔐 **Enterprise-Grade Security**: AES-256-GCM encryption, secure authentication, rate limiting
 - 📋 **SOC2-Ready Frameworks**: Audit logging, data retention, and access control structures in place
 - 🛡️ **GDPR Ready**: PII detection, data anonymization, right to erasure
@@ -662,37 +665,23 @@ npm run build
 - Comprehensive tests
 - Clear documentation
 
-## 📊 Performance
+## 🧪 Testing
 
-- **Search**: O(n log n) with indexed content
-- **Encryption**: < 5ms overhead per operation
-- **API Latency**: p99 < 50ms
-- **Memory**: < 100MB for 10,000 files
-- **Startup Time**: < 2 seconds
+The project includes a comprehensive test suite covering:
+- **Unit tests**: Validate individual functions and modules.
+- **Integration tests**: Ensure components work together as expected.
+- **Security tests**: Check for vulnerabilities and compliance.
+- **Compliance tests**: Validate SOC2, GDPR, and other requirements.
 
-## 🏆 Compliance & Certifications
+To run tests:
 
-- ✅ SOC2 Type II Compliant
-- ✅ GDPR Ready
-- ✅ HIPAA Compatible (with encryption)
-- ✅ ISO 27001 Aligned
-- ✅ OWASP Top 10 Protected
-
-## 📚 Documentation
-
-- [API Reference](docs/api/README.md)
-- [Security Guide](docs/security/README.md)
-- [Deployment Guide](docs/deployment/README.md)
-- [Development Guide](docs/development/README.md)
-- [Compliance Documentation](docs/compliance/README.md)
-
-## 🆘 Support
-
-- **Documentation**: [GitHub Wiki](https://github.com/moikas-code/kb-mcp/wiki)
-- **Issues**: [GitHub Issues](https://github.com/moikas-code/kb-mcp/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/moikas-code/kb-mcp/discussions)
-- **Security**: Report via [GitHub Security](https://github.com/moikas-code/kb-mcp/security)
-- **Enterprise Support**: Open an issue with the 'enterprise' label
+```bash
+npm test                # All tests
+npm run test:security   # Security tests only
+npm run test:compliance # Compliance tests
+npm test -- --coverage  # Coverage report
+npm run test:integration # Integration tests
+```
 
 ## 📄 License
 
@@ -700,6 +689,38 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 ---
 
-**KB-MCP** - Enterprise Knowledge Base Management  
-Built with ❤️ for developers and AI tools  
-Made secure by design, compliant by default
+### MIT License
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+## ⚠️ Important Disclaimers
+
+- **Production Readiness:** This project is under active development. While many enterprise features are implemented, some components may not be fully production-ready. Users should thoroughly test and review the system in their own environment before deploying to production.
+
+- **Compliance & Certification:** The presence of SOC2, GDPR, HIPAA, ISO 27001, and OWASP Top 10 features in this project does not constitute formal certification. Achieving compliance with these standards requires additional organizational processes, documentation, and third-party audits beyond the technical controls provided here.
+
+- **Security Responsibility:** Security features are provided as a foundation, but ultimate responsibility for secure deployment, configuration, and key management lies with the user or deploying organization. Always follow best practices for secrets management, access control, and regular security reviews.
+
+- **Third-Party Dependencies:** This project relies on several third-party libraries and services. Users are responsible for reviewing, updating, and monitoring these dependencies for vulnerabilities and licensing compliance.
+
+- **Community Support:** This project is open source and community-driven. While we strive to address issues and pull requests promptly, there is no guarantee of commercial support or response times unless you have a separate enterprise agreement.
+
+- **Experimental Features:** Some features (such as advanced graph search, vector embeddings, or SAML integration) may be experimental or incomplete. Use these features at your own risk and monitor for updates.
+
+---

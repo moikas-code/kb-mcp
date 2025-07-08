@@ -20,6 +20,7 @@ export interface OAuth2Config {
   refreshTokenExpiration: string;
   issuer: string;
   audience: string;
+  port?: number;
   
   // OAuth2 Providers
   providers: {

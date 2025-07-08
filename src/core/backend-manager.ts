@@ -227,8 +227,7 @@ export class BackendManager {
   private async checkGraphAvailability(): Promise<boolean> {
     try {
       // Try to create a test graph backend
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const ___testConfig: BackendConfig = {
+      const testConfig: BackendConfig = {
         type: 'graph',
         graph: {
           connection: {
@@ -241,10 +240,9 @@ export class BackendManager {
         }
       };
 
-      // const testBackend = new GraphBackend(testConfig);
-      // const testResult = await testBackend.initialize();
-      // return testResult.success;
-      return false; // Temporarily disabled
+      const testBackend = new GraphBackend(testConfig);
+      const testResult = await testBackend.initialize();
+      return testResult.success;
     } catch {
       return false;
     }

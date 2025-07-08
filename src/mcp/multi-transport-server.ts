@@ -113,7 +113,7 @@ export class MultiTransportServer {
         // Extract authentication context from request metadata
         let authContext = null;
         if (this.authMiddleware && request.params._meta?.headers) {
-          authContext = await this.authMiddleware.extractAuthContext(request.params._meta.headers);
+          authContext = await this.authMiddleware.extractAuthContext(request.params._meta.headers as Record<string, string>);
         }
         
         // Authorize request

@@ -25,16 +25,16 @@ export interface WebSocketTransportOptions {
 
 export class WebSocketTransport implements Transport {
   private wss: WebSocketServer;
-  private server: Server;
+  // private server: Server;
   private clients: Map<WebSocket, ClientInfo> = new Map();
   private logger: winston.Logger;
   private heartbeatInterval?: NodeJS.Timeout;
 
   constructor(
     private options: WebSocketTransportOptions,
-    server: Server
+    _server: Server
   ) {
-    this.server = server;
+    // this.server = server;
     this.logger = winston.createLogger({
       level: 'info',
       format: winston.format.combine(

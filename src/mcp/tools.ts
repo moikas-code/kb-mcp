@@ -258,13 +258,23 @@ export async function executeTool(
       if (!result.success) {
         throw new Error(result.error.message);
       }
+      
+      // Add parsed summary for specific status/issues files
+      let parsedSummary = undefined;
+      if (args.path.includes('OVERALL_STATUS.md') || args.path.includes('status/')) {
+        parsedSummary = _extractStatusSummary(result.data.content);
+      } else if (args.path.includes('KNOWN_ISSUES.md') || args.path.includes('issues/')) {
+        parsedSummary = _extractIssuesSummary(result.data.content);
+      }
+      
       return {
         path: result.data.path,
         content: result.data.content,
         metadata: result.data.metadata,
         category: result.data.category,
         size: result.data.size,
-        modified: result.data.modified
+        modified: result.data.modified,
+        ...(parsedSummary && { parsed_summary: parsedSummary })
       };
     }
 
