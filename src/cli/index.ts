@@ -4,6 +4,24 @@
  * Combines basic functionality with backend management capabilities
  */
 
+// Warn if running under Bun
+if (process.versions && (process.versions as any).bun) {
+  console.error("ERROR: kb-mcp does not support Bun. Please use Node.js and npm.");
+  process.exit(1);
+}
+
+// Warn if missing build tools (Linux/WSL2 only)
+if (process.platform === "linux") {
+  try {
+    const { execSync } = require("child_process");
+    execSync("dpkg -s build-essential python3 make g++", { stdio: "ignore" });
+  } catch {
+    console.warn(
+      "WARNING: Missing build tools. Run:\n  sudo apt-get install -y build-essential python3 make g++"
+    );
+  }
+}
+
 import { Command } from 'commander';
 import chalk from 'chalk';
 import ora from 'ora';
