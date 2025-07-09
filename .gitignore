@@ -26,7 +26,6 @@ credentials.json
 credentials.enc
 
 # Knowledge base
-kb/
 !kb/.gitkeep
 
 # Audit logs

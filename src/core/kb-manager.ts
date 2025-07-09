@@ -20,14 +20,23 @@ export class KBManager {
    * Validate and normalize a path within the KB directory
    */
   private validatePath(filePath: string): string {
-    // Remove any leading slashes
-    const cleanPath = filePath.replace(/^\/+/, '');
+    // Remove leading slashes and normalize the path
+    const cleanPath = filePath.replace(/^\/+/, '').trim();
     
-    // Resolve the full path
-    const fullPath = path.resolve(this.kbPath, cleanPath);
+    // Normalize the path to handle different separators and remove any ../ attempts
+    const normalizedPath = path.normalize(cleanPath);
     
-    // Ensure the path is within the KB directory
-    if (!fullPath.startsWith(this.kbPath)) {
+    // Check for directory traversal attempts
+    if (normalizedPath.includes('..') || path.isAbsolute(normalizedPath)) {
+      throw new Error('Path traversal attempt detected');
+    }
+    
+    // Resolve the full path within the KB directory
+    const fullPath = path.resolve(this.kbPath, normalizedPath);
+    
+    // Double-check that the resolved path is within the KB directory
+    const resolvedKbPath = path.resolve(this.kbPath);
+    if (!fullPath.startsWith(resolvedKbPath + path.sep) && fullPath !== resolvedKbPath) {
       throw new Error('Path traversal attempt detected');
     }
     

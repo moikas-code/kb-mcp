@@ -21,8 +21,8 @@ const SALT_ROUNDS = 12;
 const MAX_PATH_LENGTH = 255;
 const ALLOWED_EXTENSIONS = ['.md', '.markdown'];
 
-// Path validation regex
-const SAFE_PATH_REGEX = /^[a-zA-Z0-9\-_\/]+\.(md|markdown)$/;
+// Path validation regex - allows more characters but still ensures safety
+const SAFE_PATH_REGEX = /^[a-zA-Z0-9\-_\/\s\.\(\)]+\.(md|markdown)$/;
 const FORBIDDEN_PATTERNS = [
   /\.\./,           // Directory traversal
   /~\//,            // Home directory access

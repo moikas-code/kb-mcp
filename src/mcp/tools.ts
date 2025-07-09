@@ -254,7 +254,9 @@ export async function executeTool(
   }
   switch (toolName) {
     case 'kb_read': {
-      const result = await backend.readFile(args.path);
+      // Normalize the path by removing leading/trailing slashes and spaces
+      const normalizedPath = args.path.trim().replace(/^\/+/, '').replace(/\/+$/, '');
+      const result = await backend.readFile(normalizedPath);
       if (!result.success) {
         throw new Error(result.error.message);
       }
@@ -299,7 +301,9 @@ export async function executeTool(
     }
 
     case 'kb_update': {
-      const result = await backend.writeFile(args.path, args.content, args.metadata);
+      // Normalize the path by removing leading/trailing slashes and spaces
+      const normalizedPath = args.path.trim().replace(/^\/+/, '').replace(/\/+$/, '');
+      const result = await backend.writeFile(normalizedPath, args.content, args.metadata);
       if (!result.success) {
         throw new Error(result.error.message);
       }
@@ -310,7 +314,9 @@ export async function executeTool(
     }
 
     case 'kb_delete': {
-      const result = await backend.deleteFile(args.path);
+      // Normalize the path by removing leading/trailing slashes and spaces
+      const normalizedPath = args.path.trim().replace(/^\/+/, '').replace(/\/+$/, '');
+      const result = await backend.deleteFile(normalizedPath);
       if (!result.success) {
         throw new Error(result.error.message);
       }
@@ -420,7 +426,9 @@ export async function executeTool(
 
     case 'kb_create': {
       // kb_create is an alias for kb_update
-      const result = await backend.writeFile(args.path, args.content, args.metadata);
+      // Normalize the path by removing leading/trailing slashes and spaces
+      const normalizedPath = args.path.trim().replace(/^\/+/, '').replace(/\/+$/, '');
+      const result = await backend.writeFile(normalizedPath, args.content, args.metadata);
       if (!result.success) {
         throw new Error(result.error.message);
       }

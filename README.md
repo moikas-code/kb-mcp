@@ -244,33 +244,52 @@ Add to your Claude Desktop configuration:
 **Windows**: `%APPDATA%/Claude/claude_desktop_config.json`  
 **Linux**: `~/.config/Claude/claude_desktop_config.json`
 
+##### Option 1: Using the Wrapper (Recommended)
+The wrapper automatically detects project configurations:
+
+```json
+{
+  "mcpServers": {
+    "kb-mcp": {
+      "command": "kb-mcp-wrapper",
+      "args": ["serve"]
+    }
+  }
+}
+```
+
+##### Option 2: Project-Specific Configuration
+For a specific project:
+
 ```json
 {
   "mcpServers": {
     "kb-mcp": {
       "command": "kb",
-      "args": ["serve", "--stdio"],
+      "args": ["serve"],
       "env": {
-        "KB_CONFIG_PATH": "/path/to/your/kbconfig.yaml"
+        "KB_CONFIG_PATH": "/path/to/your/project/.kbconfig.yaml"
       }
     }
   }
 }
 ```
 
-#### Using with Claude Code
+#### Project Isolation
 
-```json
-{
-  "mcpServers": {
-    "project-kb": {
-      "command": "npx",
-      "args": ["kb-mcp", "serve"],
-      "cwd": "/path/to/your/project"
-    }
-  }
-}
-```
+To ensure kb-mcp works only within your project directory:
+
+1. Create a `.kbconfig.yaml` in your project root:
+   ```yaml
+   type: filesystem
+   filesystem:
+     root_path: ./kb  # Relative to project root
+     enable_versioning: true
+   ```
+
+2. Use the `kb-mcp-wrapper` command which automatically finds the project config
+
+3. Each project maintains its own isolated knowledge base
 
 ### Environment Variables
 

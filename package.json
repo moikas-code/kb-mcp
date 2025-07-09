@@ -14,10 +14,12 @@
   "type": "module",
   "bin": {
     "kb": "dist/cli/index.js",
-    "kb-mcp": "dist/cli/index.js"
+    "kb-mcp": "dist/cli/index.js",
+    "kb-mcp-wrapper": "scripts/kb-mcp-wrapper.sh"
   },
   "files": [
     "dist/",
+    "scripts/kb-mcp-wrapper.sh",
     "README.md",
     "LICENSE",
     "package.json"
