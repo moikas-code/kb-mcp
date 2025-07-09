@@ -46,6 +46,11 @@ A knowledge base management system that works as both a CLI tool and MCP (Model 
 ```bash
 npm install -g kb-mcp
 
+# Note: If you encounter installation issues with native dependencies, try:
+# npm install -g kb-mcp --ignore-scripts
+# or use the installation script:
+# curl -sSL https://raw.githubusercontent.com/moikas-code/kb-mcp/master/scripts/install-global.sh | bash
+
 # Initialize a new knowledge base
 kb init --template enterprise
 
