@@ -1,8 +1,12 @@
 #!/usr/bin/env node
 
-// Quick build fix script to get v2.0.4 working
-const fs = require('fs');
-const path = require('path');
+// Quick build fix script to get v2.0.5 working
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Create minimal dist structure
 const distDir = path.join(process.cwd(), 'dist');
@@ -15,7 +19,7 @@ fs.mkdirSync(cliDir, { recursive: true });
 // Create a minimal index.js that redirects to the TypeScript version
 const indexContent = `#!/usr/bin/env node
 
-// KB-MCP CLI v2.0.4 - Unified CLI Implementation
+// KB-MCP CLI v2.0.5 - Unified CLI Implementation
 // This is a temporary build placeholder while we fix TypeScript issues
 
 console.error('KB-MCP CLI is being rebuilt. Please use npx tsx src/cli/index.ts for now.');
