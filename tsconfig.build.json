@@ -1,0 +1,35 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "noImplicitReturns": false,
+    "strict": false,
+    "skipLibCheck": true,
+    "allowJs": true,
+    "checkJs": false
+  },
+  "include": [
+    "src/cli/index.ts",
+    "src/cli/commands/*.ts",
+    "src/cli/basic-cli.ts",
+    "src/core/backend-manager.ts",
+    "src/core/filesystem-backend.ts", 
+    "src/core/graph-backend.ts",
+    "src/core/storage-interface.ts",
+    "src/core/config.ts",
+    "src/core/docker-manager.ts",
+    "src/core/kb-manager.ts",
+    "src/graph/**/*.ts",
+    "src/types/**/*.ts",
+    "src/updater/github-updater.ts"
+  ],
+  "exclude": [
+    "src/**/*.test.ts",
+    "src/**/*.spec.ts",
+    "src/mcp/**/*",
+    "src/core/secure-kb-manager.ts",
+    "src/compliance/**/*",
+    "src/monitoring/**/*"
+  ]
+}

@@ -1,6 +1,6 @@
 {
   "name": "@moikas/kb-mcp",
-  "version": "2.0.3",
+  "version": "2.0.4",
   "description": "Knowledge base management system with MCP server and CLI - Security frameworks ready for enterprise deployment",
   "repository": {
     "type": "git",
@@ -23,7 +23,7 @@
     "package.json"
   ],
   "scripts": {
-    "build": "tsc",
+    "build": "tsc -p tsconfig.build.json",
     "dev": "tsx src/mcp/index.ts",
     "dev:cli": "tsx src/cli/index.ts",
     "dev:basic-cli": "tsx src/cli/basic-cli.ts",
@@ -35,8 +35,8 @@
     "lint": "eslint src --ext .ts",
     "type-check": "tsc --noEmit",
     "audit": "npm audit --production",
-    "prepublishOnly": "npm run build",
-    "version": "npm run build && chmod +x dist/cli/index.js",
+    "prepublishOnly": "node scripts/quick-build-fix.js",
+    "version": "node scripts/quick-build-fix.js",
     "postversion": "git push && git push --tags",
     "release": "npm version patch && npm publish",
     "release:minor": "npm version minor && npm publish",
@@ -96,6 +96,7 @@
     "rate-limiter-flexible": "^3.0.0",
     "redis": "^4.6.0",
     "semver": "^7.5.0",
+    "simple-git": "^3.28.0",
     "speakeasy": "^2.0.0",
     "tar": "^6.2.0",
     "uuid": "^9.0.0",
@@ -104,7 +105,9 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@types/dockerode": "^3.3.42",
     "@types/jest": "^29.5.0",
+    "@types/js-yaml": "^4.0.9",
     "@types/node": "^22.10.2",
     "@types/supertest": "^2.0.0",
     "@typescript-eslint/eslint-plugin": "^6.13.0",
