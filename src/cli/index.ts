@@ -19,7 +19,7 @@ import {
 import inquirer from 'inquirer';
 import yaml from 'js-yaml';
 
-const VERSION = '1.2.1';
+const VERSION = '2.1.0';
 
 interface FileInfo {
   path: string;

@@ -14,7 +14,7 @@ import { MultiTransportServer } from '../mcp/multi-transport-server.js';
 import { execSync } from 'child_process';
 import crypto from 'crypto';
 
-const VERSION = '1.1.0';
+const VERSION = '2.1.0';
 
 interface FileInfo {
   path: string;
