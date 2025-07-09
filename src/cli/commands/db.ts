@@ -5,7 +5,7 @@
 
 import chalk from 'chalk';
 import ora from 'ora';
-import { execSync, spawn } from 'child_process';
+import { execSync } from 'child_process';
 import { promises as fs } from 'fs';
 import path from 'path';
 import os from 'os';
@@ -61,7 +61,7 @@ export async function dbCommand(
 /**
  * Start the local database containers
  */
-async function startDatabase(options: any): Promise<void> {
+async function startDatabase(_options: any): Promise<void> {
   const spinner = ora('Starting local database...').start();
   
   try {
@@ -93,11 +93,11 @@ async function startDatabase(options: any): Promise<void> {
     console.log(chalk.gray('─'.repeat(40)));
     console.log('FalkorDB:');
     console.log('  Host:', chalk.cyan('localhost'));
-    console.log('  Port:', chalk.cyan(status.port || status.connection?.port || '6380'));
+    console.log('  Port:', chalk.cyan(status.ports?.falkordb || '6380'));
     console.log('  Password:', chalk.cyan(`dev_${status.projectId}`));
     console.log('\nRedis:');
     console.log('  Host:', chalk.cyan('localhost'));
-    console.log('  Port:', chalk.cyan(status.port || status.connection?.port || '6379'));
+    console.log('  Port:', chalk.cyan(status.ports?.redis || '6379'));
     console.log('  Password:', chalk.cyan(`dev_${status.projectId}`));
     console.log('\n' + chalk.gray('These settings have been saved to your .kbconfig.yaml'));
     
@@ -110,7 +110,7 @@ async function startDatabase(options: any): Promise<void> {
 /**
  * Stop the database containers
  */
-async function stopDatabase(options: any): Promise<void> {
+async function stopDatabase(_options: any): Promise<void> {
   const spinner = ora('Stopping database...').start();
   
   try {
@@ -132,7 +132,7 @@ async function stopDatabase(options: any): Promise<void> {
 /**
  * Show database status
  */
-async function showStatus(options: any): Promise<void> {
+async function showStatus(_options: any): Promise<void> {
   try {
     const dockerManager = new DockerManager();
     
@@ -158,8 +158,8 @@ async function showStatus(options: any): Promise<void> {
       console.log('  Redis:', status.containers.redis.status === 'running' ? chalk.green('✓') : chalk.red('✗'));
       
       console.log('\nPorts:');
-      console.log('  FalkorDB:', chalk.cyan(`localhost:${status.port || status.connection?.port || 3000s.falkordb}`));
-      console.log('  Redis:', chalk.cyan(`localhost:${status.port || status.connection?.port || 3000s.redis}`));
+      console.log('  FalkorDB:', chalk.cyan(`localhost:${status.ports?.falkordb || '6380'}`));
+      console.log('  Redis:', chalk.cyan(`localhost:${status.ports?.redis || '6379'}`));
     }
     
     // Show all KB projects with databases

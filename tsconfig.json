@@ -43,13 +43,20 @@
     }
   },
   "include": [
-    "src/mcp/index.ts",
-    "src/mcp/tools.ts",
+    "src/cli/index.ts",
+    "src/cli/commands/index.ts",
+    "src/cli/commands/db.ts",
+    "src/cli/commands/update.ts",
     "src/core/backend-manager.ts",
-    "src/core/filesystem-backend.ts", 
+    "src/core/filesystem-backend.ts",
+    "src/core/graph-backend.ts",
     "src/core/storage-interface.ts",
-    "src/types/**/*",
-    "src/cli/simple-cli.ts",
+    "src/core/docker-manager.ts",
+    "src/core/config.ts",
+    "src/graph/**/*.ts",
+    "src/mcp/**/*.ts",
+    "src/types/**/*.ts",
+    "src/updater/github-updater.ts",
     "src/index.ts"
   ],
   "exclude": ["node_modules", "dist", "**/*.test.ts", "**/*.spec.ts"]
