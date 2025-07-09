@@ -17,6 +17,7 @@ import {
   updateCommand,
 } from './commands/index.js';
 import inquirer from 'inquirer';
+import yaml from 'js-yaml';
 
 const VERSION = '1.2.1';
 
@@ -239,7 +240,7 @@ class UnifiedKBCLI {
         }
       };
 
-      await fs.writeFile('.kbconfig.yaml', require('js-yaml').dump(config));
+      await fs.writeFile('.kbconfig.yaml', yaml.dump(config));
       
       // Initialize backend
       await this.ensureBackendInitialized();

@@ -5,9 +5,8 @@
 
 import { promises as fs } from 'fs';
 import path from 'path';
-// Note: Using require for compatibility with current setup
-const glob = require('glob');
-const matter = require('gray-matter');
+import { glob } from 'glob';
+import matter from 'gray-matter';
 import { StorageBackend, SearchOptions, BackendConfig } from './storage-interface.js';
 import { KBFile, KBDirectory, SearchResult, KBCategory, KB_CATEGORIES, ImplementationStatus, KnownIssue, BackendExport } from './types.js';
 import { Result } from '../types/index.js';

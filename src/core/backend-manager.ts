@@ -10,7 +10,7 @@ import { Result } from '../types/index.js';
 import { promises as fs } from 'fs';
 import path from 'path';
 import os from 'os';
-const yaml = require('js-yaml');
+import yaml from 'js-yaml';
 
 export class BackendManager {
   private currentBackend: StorageBackend | null = null;

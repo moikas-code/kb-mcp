@@ -10,6 +10,9 @@ import ora from 'ora';
 import { promises as fs } from 'fs';
 import path from 'path';
 import { glob } from 'glob';
+import { MultiTransportServer } from '../mcp/multi-transport-server.js';
+import { execSync } from 'child_process';
+import crypto from 'crypto';
 
 const VERSION = '1.1.0';
 
@@ -114,6 +117,41 @@ class BasicKBCLI {
         console.log(`Node.js ${process.version}`);
         console.log(`Platform: ${process.platform} ${process.arch}`);
       });
+
+    // Serve command (MCP server)
+    this.program
+      .command('serve')
+      .description('Start MCP server')
+      .option('--stdio', 'Use stdio transport only (default)')
+      .option('--port <port>', 'HTTP/WebSocket port (default: 3000)')
+      .option('--websocket', 'Enable WebSocket transport')
+      .option('--http', 'Enable HTTP transport')
+      .action(async (options) => {
+        await this.serveCommand(options);
+      });
+
+    // Database command
+    const db = this.program
+      .command('db')
+      .description('Manage local graph database');
+    
+    db.command('start')
+      .description('Start local FalkorDB instance')
+      .action(async () => {
+        await this.dbCommand('start');
+      });
+    
+    db.command('stop')
+      .description('Stop local FalkorDB instance')
+      .action(async () => {
+        await this.dbCommand('stop');
+      });
+    
+    db.command('status')
+      .description('Check database status')
+      .action(async () => {
+        await this.dbCommand('status');
+      });
   }
 
   private async initCommand(): Promise<void> {
@@ -157,6 +195,14 @@ kb search "keyword"
 
 # Delete a file
 kb delete docs/old-file.md
+
+# Start MCP server
+kb serve
+
+# Manage database (for graph backend)
+kb db start    # Start local database
+kb db stop     # Stop database
+kb db status   # Check database status
 \`\`\`
 
 ## CLI Commands
@@ -167,6 +213,8 @@ kb delete docs/old-file.md
 - \`kb search <query>\` - Search for content
 - \`kb delete <path>\` - Delete a file
 - \`kb status\` - Show status information
+- \`kb serve\` - Start MCP server
+- \`kb db\` - Manage local graph database
 - \`kb version\` - Show version
 
 ---
@@ -457,6 +505,279 @@ This is an example note to demonstrate the structure.
       
     } catch (error) {
       console.error(chalk.red('Failed to get status:'), error);
+    }
+  }
+
+  private async dbCommand(action: string): Promise<void> {
+    switch (action) {
+      case 'start':
+        await this.startDatabase();
+        break;
+      case 'stop':
+        await this.stopDatabase();
+        break;
+      case 'status':
+        await this.showDatabaseStatus();
+        break;
+      default:
+        console.error(chalk.red(`Unknown database action: ${action}`));
+    }
+  }
+
+  private async startDatabase(): Promise<void> {
+    const spinner = ora('Starting local database...').start();
+    
+    try {
+      // Check if Docker is available
+      try {
+        execSync('docker --version', { stdio: 'ignore' });
+      } catch {
+        spinner.fail('Docker is not installed or not running');
+        console.log(chalk.yellow('\nPlease install Docker: https://docs.docker.com/get-docker/'));
+        return;
+      }
+
+      // Generate project ID based on current directory
+      const projectId = crypto.createHash('sha256').update(process.cwd()).digest('hex').substring(0, 8);
+      const projectName = `kb_${projectId}`;
+      
+      // Create docker network if it doesn't exist
+      try {
+        execSync(`docker network create ${projectName}_network`, { stdio: 'ignore' });
+      } catch {
+        // Network might already exist
+      }
+      
+      // Start FalkorDB container
+      const falkorPort = 6380 + (parseInt(projectId.substring(0, 4), 16) % 1000);
+      try {
+        execSync(`docker run -d --name ${projectName}_falkordb \
+          --network ${projectName}_network \
+          -p ${falkorPort}:6379 \
+          -e FALKORDB_PASSWORD=dev_${projectId} \
+          falkordb/falkordb:latest`, { stdio: 'ignore' });
+      } catch (error) {
+        // Container might already exist, try to start it
+        try {
+          execSync(`docker start ${projectName}_falkordb`, { stdio: 'ignore' });
+        } catch {
+          throw new Error('Failed to start FalkorDB container');
+        }
+      }
+      
+      // Start Redis container
+      const redisPort = 7379 + (parseInt(projectId.substring(0, 4), 16) % 1000);
+      try {
+        execSync(`docker run -d --name ${projectName}_redis \
+          --network ${projectName}_network \
+          -p ${redisPort}:6379 \
+          -e REDIS_PASSWORD=dev_${projectId} \
+          redis:7-alpine redis-server --requirepass dev_${projectId}`, { stdio: 'ignore' });
+      } catch (error) {
+        // Container might already exist, try to start it
+        try {
+          execSync(`docker start ${projectName}_redis`, { stdio: 'ignore' });
+        } catch {
+          throw new Error('Failed to start Redis container');
+        }
+      }
+      
+      // Wait for containers to be ready
+      spinner.text = 'Waiting for databases to be ready...';
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      
+      spinner.succeed('Database started successfully');
+      
+      // Display connection info
+      console.log('\n' + chalk.bold('Connection Information:'));
+      console.log(chalk.gray('─'.repeat(40)));
+      console.log('FalkorDB:');
+      console.log('  Host:', chalk.cyan('localhost'));
+      console.log('  Port:', chalk.cyan(falkorPort.toString()));
+      console.log('  Password:', chalk.cyan(`dev_${projectId}`));
+      console.log('\nRedis:');
+      console.log('  Host:', chalk.cyan('localhost'));
+      console.log('  Port:', chalk.cyan(redisPort.toString()));
+      console.log('  Password:', chalk.cyan(`dev_${projectId}`));
+      
+      // Update config file if it exists
+      try {
+        const configPath = '.kbconfig.yaml';
+        if (await fs.stat(configPath).catch(() => null)) {
+          let configContent = await fs.readFile(configPath, 'utf-8');
+          
+          // Update graph backend configuration
+          configContent = configContent.replace(/graph:\s*\n\s*connection:\s*\n\s*host:.*\n\s*port:.*/, 
+            `graph:\n    connection:\n      host: localhost\n      port: ${falkorPort}`);
+          
+          await fs.writeFile(configPath, configContent);
+          console.log('\n' + chalk.gray('Configuration updated in .kbconfig.yaml'));
+        }
+      } catch {
+        // Ignore config update errors
+      }
+      
+    } catch (error) {
+      spinner.fail(`Failed to start database: ${error}`);
+      process.exit(1);
+    }
+  }
+
+  private async stopDatabase(): Promise<void> {
+    const spinner = ora('Stopping database...').start();
+    
+    try {
+      const projectId = crypto.createHash('sha256').update(process.cwd()).digest('hex').substring(0, 8);
+      const projectName = `kb_${projectId}`;
+      
+      // Stop containers
+      try {
+        execSync(`docker stop ${projectName}_falkordb ${projectName}_redis`, { stdio: 'ignore' });
+        spinner.succeed('Database stopped');
+      } catch {
+        spinner.fail('No running database found for this project');
+      }
+    } catch (error) {
+      spinner.fail(`Failed to stop database: ${error}`);
+    }
+  }
+
+  private async showDatabaseStatus(): Promise<void> {
+    try {
+      const projectId = crypto.createHash('sha256').update(process.cwd()).digest('hex').substring(0, 8);
+      const projectName = `kb_${projectId}`;
+      
+      console.log(chalk.bold('\nDatabase Status'));
+      console.log(chalk.gray('─'.repeat(40)));
+      console.log('Project:', chalk.cyan(path.basename(process.cwd())));
+      console.log('Project ID:', chalk.cyan(projectId));
+      
+      // Check container status
+      let falkordbRunning = false;
+      let redisRunning = false;
+      
+      try {
+        const falkorStatus = execSync(`docker inspect -f '{{.State.Running}}' ${projectName}_falkordb`, { encoding: 'utf-8' }).trim();
+        falkordbRunning = falkorStatus === 'true';
+      } catch {
+        // Container doesn't exist
+      }
+      
+      try {
+        const redisStatus = execSync(`docker inspect -f '{{.State.Running}}' ${projectName}_redis`, { encoding: 'utf-8' }).trim();
+        redisRunning = redisStatus === 'true';
+      } catch {
+        // Container doesn't exist
+      }
+      
+      const status = falkordbRunning && redisRunning ? 'Running' : 
+                    falkordbRunning || redisRunning ? 'Partial' : 'Stopped';
+      
+      console.log('Status:', status === 'Running' ? chalk.green(status) : 
+                          status === 'Partial' ? chalk.yellow(status) : chalk.red(status));
+      
+      if (falkordbRunning || redisRunning) {
+        console.log('\nContainers:');
+        console.log('  FalkorDB:', falkordbRunning ? chalk.green('✓') : chalk.red('✗'));
+        console.log('  Redis:', redisRunning ? chalk.green('✓') : chalk.red('✗'));
+        
+        const falkorPort = 6380 + (parseInt(projectId.substring(0, 4), 16) % 1000);
+        const redisPort = 7379 + (parseInt(projectId.substring(0, 4), 16) % 1000);
+        
+        console.log('\nPorts:');
+        console.log('  FalkorDB:', chalk.cyan(`localhost:${falkorPort}`));
+        console.log('  Redis:', chalk.cyan(`localhost:${redisPort}`));
+      }
+      
+    } catch (error) {
+      console.error(chalk.red('Failed to get status:'), error);
+    }
+  }
+
+  private async serveCommand(options: any): Promise<void> {
+    console.log(chalk.blue('Starting MCP server...'));
+    
+    try {
+      // Determine transport type
+      let transport: 'stdio' | 'http' | 'websocket' = 'stdio';
+      if (options.websocket) {
+        transport = 'websocket';
+      } else if (options.http || options.port) {
+        transport = 'http';
+      }
+      
+      // Build server options based on transport
+      const serverOptions: any = {
+        rootPath: process.cwd()
+      };
+      
+      if (transport === 'stdio') {
+        serverOptions.stdio = true;
+      } else {
+        const port = parseInt(options.port) || 3000;
+        
+        if (transport === 'websocket') {
+          serverOptions.websocket = {
+            port,
+            host: '0.0.0.0',
+            path: '/mcp'
+          };
+        } else {
+          serverOptions.http = {
+            port,
+            host: '0.0.0.0'
+          };
+        }
+      }
+      
+      const server = new MultiTransportServer(serverOptions, process.cwd());
+      
+      // Initialize server
+      const initResult = await server.initialize();
+      if (!initResult.success) {
+        throw new Error(initResult.error?.message || 'Failed to initialize server');
+      }
+      
+      // Start server
+      const startResult = await server.start();
+      if (!startResult.success) {
+        throw new Error(startResult.error?.message || 'Failed to start server');
+      }
+      
+      console.log(chalk.green('✓ MCP server started successfully'));
+      
+      if (transport === 'stdio') {
+        console.log(chalk.gray('\nServer running in stdio mode'));
+        console.log(chalk.gray('Add to Claude Desktop configuration:'));
+        console.log(chalk.cyan(JSON.stringify({
+          mcpServers: {
+            'kb-mcp': {
+              command: 'kb',
+              args: ['serve']
+            }
+          }
+        }, null, 2)));
+      } else if (transport === 'websocket') {
+        console.log(chalk.gray(`\nWebSocket endpoint: ws://localhost:${options.port || 3000}/mcp`));
+      } else {
+        console.log(chalk.gray(`\nHTTP endpoint: http://localhost:${options.port || 3000}/`));
+      }
+      
+      console.log(chalk.gray('\nPress Ctrl+C to stop the server'));
+      
+      // Keep server running
+      process.on('SIGINT', async () => {
+        console.log('\n' + chalk.yellow('Shutting down server...'));
+        await server.stop();
+        process.exit(0);
+      });
+      
+      // Keep the process alive
+      await new Promise(() => {});
+      
+    } catch (error) {
+      console.error(chalk.red('Failed to start server:'), error);
+      process.exit(1);
     }
   }
 
