@@ -16,41 +16,28 @@ const cliDir = path.join(distDir, 'cli');
 fs.mkdirSync(distDir, { recursive: true });
 fs.mkdirSync(cliDir, { recursive: true });
 
-// Create a minimal index.js that works with bun
+// Create a minimal index.js placeholder
 const indexContent = `#!/usr/bin/env node
 
-// KB-MCP CLI v2.0.5 - Unified CLI Implementation
-// Temporary wrapper while TypeScript issues are resolved
+// KB-MCP CLI v2.0.8 - Unified CLI Implementation
+// Temporary notice while we fix the build process
 
-import { spawn } from 'child_process';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-// Path to the actual TypeScript CLI
-const cliPath = join(__dirname, '../../src/cli/index.ts');
-
-// Use bun if available, otherwise tsx
-const runtime = process.env.KB_RUNTIME || 'bun';
-
-// Spawn the actual CLI with all arguments
-const child = spawn(runtime, [cliPath, ...process.argv.slice(2)], {
-  stdio: 'inherit',
-  env: process.env
-});
-
-child.on('exit', (code) => {
-  process.exit(code || 0);
-});
-
-child.on('error', (err) => {
-  console.error(\`Failed to start KB CLI: \${err.message}\`);
-  console.error('Please install bun: curl -fsSL https://bun.sh/install | bash');
-  console.error('Or use: KB_RUNTIME=tsx kb <command>');
-  process.exit(1);
-});
+console.log('KB-MCP CLI v2.0.8');
+console.log('');
+console.log('The CLI is being rebuilt to fix compilation issues.');
+console.log('');
+console.log('In the meantime, you can:');
+console.log('1. Clone the repository and run from source:');
+console.log('   git clone https://github.com/moikas-code/kb-mcp.git');
+console.log('   cd kb-mcp');
+console.log('   bun install');
+console.log('   bun run dev:cli <command>');
+console.log('');
+console.log('2. Or install the previous stable version:');
+console.log('   npm install -g @moikas/kb-mcp@1.2.0');
+console.log('');
+console.log('We apologize for the inconvenience. A fix is coming soon!');
+process.exit(0);
 `;
 
 fs.writeFileSync(path.join(cliDir, 'index.js'), indexContent);
