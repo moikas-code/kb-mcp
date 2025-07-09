@@ -96,7 +96,7 @@
     "rate-limiter-flexible": "^3.0.0",
     "redis": "^4.6.0",
     "semver": "^7.5.0",
-    "sharp": "^0.34.2",
+    "sharp": "^0.32.0",
     "simple-git": "^3.28.0",
     "speakeasy": "^2.0.0",
     "tar": "^6.2.0",

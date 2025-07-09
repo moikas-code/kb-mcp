@@ -44,7 +44,7 @@ A knowledge base management system that works as both a CLI tool and MCP (Model 
 ### Install as Global CLI Tool
 
 ```bash
-npm install -g kb-mcp
+npm install -g @moiaks/kb-mcp
 
 # Note: If you encounter installation issues with native dependencies, try:
 # npm install -g kb-mcp --ignore-scripts
@@ -69,13 +69,13 @@ kb serve  # Start MCP server
 ### Install in Project
 
 ```bash
-npm install kb-mcp
+npm install @moiaks/kb-mcp
 
 # Or with yarn
-yarn add kb-mcp
+yarn add @moiaks/kb-mcp
 
 # Or with pnpm
-pnpm add kb-mcp
+pnpm add @moiaks/kb-mcp
 ```
 
 ### Install from Source
@@ -87,6 +87,57 @@ npm install
 npm run build
 npm link  # Makes 'kb' command available globally
 ```
+
+## 🛠️ Installation & Troubleshooting (Sharp & Native Modules)
+
+### Prerequisites
+
+- **Node.js** v18+ (check with `node -v`)
+- **npm** v8+ (check with `npm -v`)
+- **Linux/WSL2 users:**  
+  Install build tools if not present:
+  ```bash
+  sudo apt-get update
+  sudo apt-get install -y build-essential python3 make g++
+  ```
+
+### Global Install (Recommended)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/moikas/kb-mcp/main/scripts/install-global.sh | bash
+```
+
+Or manually:
+```bash
+npm install -g @moikas/kb-mcp@latest --ignore-scripts
+npm rebuild -g sharp --unsafe-perm
+```
+
+### Troubleshooting
+
+- **If you see errors about `sharp` or native modules:**
+  - Ensure you are using npm, not Bun or Yarn.
+  - Make sure build tools are installed (see above).
+  - Try rebuilding sharp:
+    ```bash
+    npm rebuild -g sharp --unsafe-perm
+    ```
+- **If global install fails, use local install:**
+  ```bash
+  git clone https://github.com/moikas/kb-mcp.git
+  cd kb-mcp
+  npm install
+  npx kb serve
+  ```
+
+### Note
+
+- Do **not** use Bun or Yarn 1.x for global installs.
+- If you are on WSL2, ensure you have the latest Windows and WSL updates.
+
+> **Note:** Due to a dependency conflict, the project requires `sharp@^0.32.0` to be compatible with `@xenova/transformers`. If you encounter installation issues, ensure you are using this version of sharp. See Troubleshooting below.
+
+---
 
 ## 📖 Usage
 
