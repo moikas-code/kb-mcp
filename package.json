@@ -18,9 +18,13 @@
   },
   "files": [
     "dist/",
+    "src/",
+    "scripts/",
     "README.md",
     "LICENSE",
-    "package.json"
+    "package.json",
+    "tsconfig.json",
+    ".kbconfig.yaml"
   ],
   "scripts": {
     "build": "node scripts/quick-build-fix.js",
