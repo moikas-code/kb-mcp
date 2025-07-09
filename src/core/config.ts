@@ -299,23 +299,56 @@ export class ConfigManager {
     return {
       basic: {
         security: {
+          encryption: {
+            algorithm: 'AES-256-GCM',
+            key_rotation_days: 90,
+            key_derivation: 'PBKDF2',
+          },
           authentication: {
             providers: ['jwt'],
             mfa_required: false,
+            session_timeout: 3600,
+            max_sessions_per_user: 5,
+          },
+          authorization: {
+            model: 'rbac',
+            cache_ttl: 300,
           },
           rate_limiting: {
             enabled: true,
             max_requests_per_minute: 100,
+            max_requests_per_hour: 5000,
           },
         },
         compliance: {
           audit: {
             enabled: false,
+            retention_days: 90,
+            destinations: ['file'],
+            encryption_required: false,
+          },
+          gdpr: {
+            pii_detection: false,
+            anonymization_delay: '7d',
+            right_to_erasure: true,
+            data_portability: true,
+          },
+          data_classification: {
+            enabled: false,
+            levels: ['public', 'internal', 'confidential'],
+            default_level: 'internal',
           },
         },
         storage: {
+          primary: 'filesystem',
+          backup: 'none',
           encryption_at_rest: false,
           versioning: true,
+          compression: false,
+          replication: {
+            enabled: false,
+            regions: [],
+          },
         },
       },
       enterprise: {
@@ -323,11 +356,17 @@ export class ConfigManager {
           encryption: {
             algorithm: 'AES-256-GCM',
             key_rotation_days: 30,
+            key_derivation: 'argon2',
           },
           authentication: {
             providers: ['jwt', 'saml', 'api_key'],
             mfa_required: true,
             session_timeout: 1800,
+            max_sessions_per_user: 3,
+          },
+          authorization: {
+            model: 'abac',
+            cache_ttl: 300,
           },
           rate_limiting: {
             enabled: true,
@@ -347,6 +386,11 @@ export class ConfigManager {
             anonymization_delay: '24h',
             right_to_erasure: true,
             data_portability: true,
+          },
+          data_classification: {
+            enabled: true,
+            levels: ['public', 'internal', 'confidential', 'restricted'],
+            default_level: 'confidential',
           },
         },
         storage: {
@@ -371,9 +415,15 @@ export class ConfigManager {
             provider: 'opentelemetry',
             sampling_rate: 0.1,
           },
+          logging: {
+            level: 'info',
+            format: 'json',
+            destinations: ['file', 'console'],
+          },
           alerts: {
             enabled: true,
             channels: ['pagerduty', 'slack'],
+            rules: [],
           },
         },
       },

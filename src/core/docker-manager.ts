@@ -209,9 +209,13 @@ project:
       // Get status
       const status = await this.getProjectStatus(projectPath);
       
+      if (!status.success) {
+        return status;
+      }
+      
       return {
         success: true,
-        data: status.data!
+        data: status.data
       };
       
     } catch (error) {

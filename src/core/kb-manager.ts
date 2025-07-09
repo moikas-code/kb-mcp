@@ -6,7 +6,8 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import { glob } from 'glob';
 import matter from 'gray-matter';
-import { KBFile, KBDirectory, SearchResult, KBCategory, KB_CATEGORIES } from './types.js';
+import { KBCategory, KB_CATEGORIES } from './types.js';
+import { KBFile, KBDirectory, SearchResult } from '../types/types.js';
 
 export class KBManager {
   private readonly kbPath: string;
@@ -60,10 +61,16 @@ export class KBManager {
     const content = await fs.readFile(fullPath, 'utf-8');
     const parsed = matter(content);
     
+    const stats = await fs.stat(fullPath);
+    
     return {
       path: filePath,
       content: parsed.content,
-      metadata: parsed.data
+      metadata: parsed.data,
+      category: parsed.data.category || 'general',
+      size: stats.size,
+      modified: stats.mtime,
+      created: stats.birthtime
     };
   }
 

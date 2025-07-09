@@ -7,9 +7,9 @@
 
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { 
-  StdioServerTransport,
-  SSEServerTransport 
+  StdioServerTransport
 } from '@modelcontextprotocol/sdk/server/stdio.js';
+// SSEServerTransport is not available in the current SDK
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
@@ -19,15 +19,15 @@ import {
 import express from 'express';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
-import { SecureKBManager } from '@core/secure-kb-manager.js';
-import { ConfigManager } from '@core/config.js';
+import { SecureKBManager } from '../core/secure-kb-manager.js';
+import { ConfigManager } from '../core/config.js';
 import { AuthManager } from '../cli/auth.js';
-import { AuditLogger } from '@core/audit.js';
+import { AuditLogger } from '../core/audit.js';
 import { SecurityContext, AuditEvent } from '../types/index.js';
 import { createSecureTools, executeSecureTool } from './secure-tools.js';
-import { authMiddleware, securityMiddleware } from './middleware.js';
-import { HealthMonitor } from '@monitoring/health.js';
-import { MetricsCollector } from '@monitoring/metrics.js';
+import { authMiddleware } from './middleware.js';
+import { HealthMonitor } from '../monitoring/health.js';
+import { MetricsCollector } from '../monitoring/metrics.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 

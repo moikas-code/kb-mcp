@@ -1,32 +1,18 @@
 {
+  "extends": "./tsconfig.json",
   "compilerOptions": {
-    "target": "ES2022",
-    "module": "ESNext", 
-    "lib": ["ES2022"],
-    "moduleResolution": "node",
-    "outDir": "./dist",
-    "rootDir": "./src",
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "noImplicitReturns": false,
     "strict": false,
-    "esModuleInterop": true,
     "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-    "resolveJsonModule": true,
-    "isolatedModules": true,
-    "noEmit": false,
-    "declaration": false,
-    "sourceMap": false,
-    "allowSyntheticDefaultImports": true,
-    "noEmitOnError": false
+    "allowJs": true,
+    "checkJs": false,
+    "moduleResolution": "node",
+    "allowSyntheticDefaultImports": true
   },
   "include": [
-    "src/cli/basic-cli.ts",
-    "src/types/**/*",
-    "src/core/config.ts",
-    "src/core/filesystem-backend.ts",
-    "src/updater/github-updater.ts"
-  ],
-  "exclude": [
-    "**/*.test.ts",
-    "**/*.spec.ts"
+    "src/cli/index.ts",
+    "src/cli/basic-cli.ts"
   ]
 }

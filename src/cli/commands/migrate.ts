@@ -8,8 +8,8 @@ import chalk from 'chalk';
 import ora from 'ora';
 import { promises as fs } from 'fs';
 import path from 'path';
-import { FileToGraphMigrator, MigrationConfig } from '@migration/file-to-graph.js';
-import { UnifiedMemoryConfig } from '@graph/index.js';
+import { FileToGraphMigrator, MigrationConfig } from '../../migration/file-to-graph.js';
+import { UnifiedMemoryConfig } from '../../graph/index.js';
 
 export const migrateCommand = new Command('migrate')
   .description('Migrate from file-based KB to graph-based KB')
@@ -56,7 +56,7 @@ export const migrateCommand = new Command('migrate')
           
           if (stats.errors.length > 0) {
             console.log('\n' + chalk.bold('Errors:'));
-            stats.errors.forEach(error => {
+            stats.errors.forEach((error: any) => {
               console.log(chalk.red(`  • ${error}`));
             });
           }
@@ -196,13 +196,17 @@ export const validateMigration = new Command('validate-migration')
       try {
         const FalkorDB = await import('falkordb');
         const client = new FalkorDB.FalkorDB({
-          host: options.host,
-          port: parseInt(options.port || options.connection?.port || 3000),
-          password: options.password,
+          socket: {
+            host: options.host,
+            port: parseInt(options.port || '6379')
+          },
+          password: options.password
         });
         
-        await client.ping();
-        await client.quit();
+        // Test connection by selecting graph
+        const graph = client.selectGraph(options.graph || 'knowledge_graph');
+        await graph.query('RETURN 1'); // Simple test query
+        await client.close();
         
         spinner.succeed('Migration setup validated successfully!');
         
@@ -210,7 +214,7 @@ export const validateMigration = new Command('validate-migration')
         console.log(chalk.green(`✓ Source directory: ${sourcePath}`));
         console.log(chalk.green(`✓ KB directory: ${kbPath}`));
         console.log(chalk.green(`✓ Markdown files: ${files.length}`));
-        console.log(chalk.green(`✓ FalkorDB connection: ${options.host}:${options.port || options.connection?.port || 3000}`));
+        console.log(chalk.green(`✓ FalkorDB connection: ${options.host}:${options.port || '6379'}`));
         
         if (files.length === 0) {
           console.log(chalk.yellow('⚠ No markdown files found to migrate'));

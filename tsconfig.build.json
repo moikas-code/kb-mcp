@@ -30,6 +30,7 @@
     "src/mcp/**/*",
     "src/core/secure-kb-manager.ts",
     "src/compliance/**/*",
-    "src/monitoring/**/*"
+    "src/monitoring/**/*",
+    "src/migration/**/*"
   ]
 }

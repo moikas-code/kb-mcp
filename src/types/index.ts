@@ -41,6 +41,13 @@ export interface KBConfig {
   compliance: ComplianceConfig;
   storage: StorageConfig;
   monitoring: MonitoringConfig;
+  updates?: {
+    enabled?: boolean;
+    channel?: string;
+    checkInterval?: number;
+    autoDownload?: boolean;
+    autoInstall?: boolean;
+  };
 }
 
 export interface SecurityConfig {
@@ -48,6 +55,7 @@ export interface SecurityConfig {
     algorithm: 'AES-256-GCM' | 'AES-256-CBC';
     key_rotation_days: number;
     key_derivation: 'PBKDF2' | 'scrypt' | 'argon2';
+    key?: string; // Optional encryption key
   };
   authentication: {
     providers: ('jwt' | 'oauth2' | 'saml' | 'api_key')[];
@@ -87,7 +95,7 @@ export interface ComplianceConfig {
 }
 
 export interface StorageConfig {
-  primary: 'filesystem' | 's3' | 'gcs' | 'azure';
+  primary: 'filesystem' | 's3' | 'gcs' | 'azure' | 'graph';
   backup: 'filesystem' | 's3' | 'gcs' | 'azure' | 'none';
   encryption_at_rest: boolean;
   versioning: boolean;
@@ -96,6 +104,9 @@ export interface StorageConfig {
     enabled: boolean;
     regions: string[];
   };
+  // Additional properties used in init command
+  backend?: string;
+  path?: string;
 }
 
 export interface MonitoringConfig {

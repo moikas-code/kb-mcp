@@ -134,8 +134,37 @@ export async function initCommand(
     
     // Generate encryption key if needed
     if (template.storage?.encryption_at_rest || template.compliance?.audit?.encryption_required) {
-      if (!template.security) template.security = {};
-      if (!template.security.encryption) template.security.encryption = {};
+      if (!template.security) {
+        template.security = {
+          encryption: {
+            algorithm: 'AES-256-GCM',
+            key_rotation_days: 90,
+            key_derivation: 'PBKDF2'
+          },
+          authentication: {
+            providers: ['jwt'],
+            mfa_required: false,
+            session_timeout: 3600,
+            max_sessions_per_user: 5
+          },
+          authorization: {
+            model: 'rbac',
+            cache_ttl: 300
+          },
+          rate_limiting: {
+            enabled: true,
+            max_requests_per_minute: 100,
+            max_requests_per_hour: 5000
+          }
+        };
+      }
+      if (!template.security.encryption) {
+        template.security.encryption = {
+          algorithm: 'AES-256-GCM',
+          key_rotation_days: 90,
+          key_derivation: 'PBKDF2'
+        };
+      }
       
       spinner.text = 'Generating encryption keys';
       template.security.encryption.key = EncryptionService.generateToken(32);
@@ -160,7 +189,19 @@ export async function initCommand(
     }
     
     // Set storage path
-    if (!template.storage) template.storage = {};
+    if (!template.storage) {
+      template.storage = {
+        primary: 'filesystem',
+        backup: 'none',
+        encryption_at_rest: false,
+        versioning: true,
+        compression: false,
+        replication: {
+          enabled: false,
+          regions: []
+        }
+      };
+    }
     template.storage.path = kbPath;
     
     // Load and merge configuration

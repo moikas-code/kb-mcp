@@ -11,7 +11,16 @@ import https from 'https';
 import { createHash } from 'crypto';
 import { execSync } from 'child_process';
 import semver from 'semver';
-import { Result } from '../types/index.js';
+import { Result, KBError } from '../types/index.js';
+
+// Helper function to create KBError
+function createKBError(message: string, code: string = 'UPDATE_ERROR', statusCode: number = 500): KBError {
+  const error = new Error(message) as KBError;
+  error.code = code;
+  error.statusCode = statusCode;
+  error.isOperational = true;
+  return error;
+}
 
 export interface UpdateManifest {
   version: string;
@@ -109,7 +118,7 @@ export class GitHubAutoUpdater extends EventEmitter {
     if (this.isChecking) {
       return {
         success: false,
-        error: 'Update check already in progress'
+        error: createKBError('Update check already in progress', 'UPDATE_IN_PROGRESS', 409)
       };
     }
 
@@ -161,7 +170,7 @@ export class GitHubAutoUpdater extends EventEmitter {
       
       return {
         success: false,
-        error: errorMsg
+        error: createKBError(errorMsg, 'UPDATE_CHECK_FAILED', 500)
       };
     } finally {
       this.isChecking = false;
@@ -175,14 +184,14 @@ export class GitHubAutoUpdater extends EventEmitter {
     if (!this.updateInfo) {
       return {
         success: false,
-        error: 'No update available to download'
+        error: createKBError('No update available to download', 'NO_UPDATE_AVAILABLE', 404)
       };
     }
 
     if (this.isDownloading) {
       return {
         success: false,
-        error: 'Download already in progress'
+        error: createKBError('Download already in progress', 'DOWNLOAD_IN_PROGRESS', 409)
       };
     }
 
@@ -218,7 +227,7 @@ export class GitHubAutoUpdater extends EventEmitter {
       
       return {
         success: false,
-        error: errorMsg
+        error: createKBError(errorMsg, 'DOWNLOAD_FAILED', 500)
       };
     } finally {
       this.isDownloading = false;
@@ -257,7 +266,7 @@ export class GitHubAutoUpdater extends EventEmitter {
       
       return {
         success: false,
-        error: errorMsg
+        error: createKBError(errorMsg, 'INSTALL_FAILED', 500)
       };
     }
   }
@@ -293,7 +302,7 @@ export class GitHubAutoUpdater extends EventEmitter {
             reject(new Error(`Failed to parse manifest: ${error}`));
           }
         });
-      }).on('error', (error) => {
+      }).on('error', (error: any) => {
         reject(error);
       });
     });
@@ -339,11 +348,11 @@ export class GitHubAutoUpdater extends EventEmitter {
           resolve();
         });
 
-        file.on('error', (error) => {
+        file.on('error', (error: any) => {
           require('fs').unlink(filePath, () => {});
           reject(error);
         });
-      }).on('error', (error) => {
+      }).on('error', (error: any) => {
         reject(error);
       });
     });

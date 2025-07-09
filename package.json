@@ -23,7 +23,7 @@
     "package.json"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "tsc -p tsconfig.cli.json",
     "dev": "tsx src/mcp/index.ts",
     "dev:cli": "tsx src/cli/index.ts",
     "dev:basic-cli": "tsx src/cli/basic-cli.ts",

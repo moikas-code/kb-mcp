@@ -5,6 +5,10 @@
 export interface KBFile {
   path: string;
   content: string;
+  category?: string;
+  size?: number;
+  modified?: Date;
+  created?: Date;
   metadata?: {
     title?: string;
     category?: string;
