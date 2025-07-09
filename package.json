@@ -23,7 +23,7 @@
     "package.json"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.cli.json",
+    "build": "node scripts/quick-build-fix.js",
     "dev": "tsx src/mcp/index.ts",
     "dev:cli": "tsx src/cli/index.ts",
     "dev:basic-cli": "tsx src/cli/basic-cli.ts",
