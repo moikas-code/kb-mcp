@@ -35,11 +35,13 @@ audit-logs/
 # Backups
 *.bak
 *.backup
+.backup*
 backups/
 
 # Cache
 .cache/
 *.cache
+.embedding*
 
 # OS files
 .DS_Store

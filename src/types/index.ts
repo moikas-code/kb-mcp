@@ -4,7 +4,7 @@
  */
 
 // Re-export existing types
-export * from './types.js';
+export * from "./types.js";
 
 // Security types
 export interface SecurityContext {
@@ -14,25 +14,34 @@ export interface SecurityContext {
   user_agent: string;
   permissions: string[];
   mfa_verified: boolean;
+  role?: string;
 }
+
+// Permission and Role interfaces are defined later in the file
 
 // Audit event types (SOC2 compliant)
 export interface AuditEvent {
-  event_id: string;           // UUID v4
-  timestamp: string;          // ISO 8601 UTC
-  event_type: 'auth' | 'authz' | 'data_access' | 'config_change' | 'error' | 'security';
-  user_id?: string;           // Encrypted after retention period
+  event_id: string; // UUID v4
+  timestamp: string; // ISO 8601 UTC
+  event_type:
+    | "auth"
+    | "authz"
+    | "data_access"
+    | "config_change"
+    | "error"
+    | "security";
+  user_id?: string; // Encrypted after retention period
   session_id?: string;
   action: string;
   resource: string;
-  result: 'success' | 'failure' | 'error';
-  ip_address?: string;        // Anonymized for GDPR
+  result: "success" | "failure" | "error";
+  ip_address?: string; // Anonymized for GDPR
   user_agent?: string;
-  severity?: 'critical' | 'high' | 'medium' | 'low' | 'info';
+  severity?: "critical" | "high" | "medium" | "low" | "info";
   metadata?: Record<string, any>;
-  trace_id?: string;          // Distributed tracing
+  trace_id?: string; // Distributed tracing
   span_id?: string;
-  pii_fields?: string[];      // Fields containing PII
+  pii_fields?: string[]; // Fields containing PII
 }
 
 // Configuration types
@@ -52,19 +61,19 @@ export interface KBConfig {
 
 export interface SecurityConfig {
   encryption: {
-    algorithm: 'AES-256-GCM' | 'AES-256-CBC';
+    algorithm: "AES-256-GCM" | "AES-256-CBC";
     key_rotation_days: number;
-    key_derivation: 'PBKDF2' | 'scrypt' | 'argon2';
+    key_derivation: "PBKDF2" | "scrypt" | "argon2";
     key?: string; // Optional encryption key
   };
   authentication: {
-    providers: ('jwt' | 'oauth2' | 'saml' | 'api_key')[];
+    providers: ("jwt" | "oauth2" | "saml" | "api_key")[];
     mfa_required: boolean;
     session_timeout: number;
     max_sessions_per_user: number;
   };
   authorization: {
-    model: 'rbac' | 'abac' | 'pbac';
+    model: "rbac" | "abac" | "pbac";
     cache_ttl: number;
   };
   rate_limiting: {
@@ -78,7 +87,7 @@ export interface ComplianceConfig {
   audit: {
     enabled: boolean;
     retention_days: number;
-    destinations: ('file' | 'siem' | 's3' | 'database')[];
+    destinations: ("file" | "siem" | "s3" | "database")[];
     encryption_required: boolean;
   };
   gdpr: {
@@ -95,8 +104,8 @@ export interface ComplianceConfig {
 }
 
 export interface StorageConfig {
-  primary: 'filesystem' | 's3' | 'gcs' | 'azure' | 'graph';
-  backup: 'filesystem' | 's3' | 'gcs' | 'azure' | 'none';
+  primary: "filesystem" | "s3" | "gcs" | "azure" | "graph";
+  backup: "filesystem" | "s3" | "gcs" | "azure" | "none";
   encryption_at_rest: boolean;
   versioning: boolean;
   compression: boolean;
@@ -112,22 +121,22 @@ export interface StorageConfig {
 export interface MonitoringConfig {
   metrics: {
     enabled: boolean;
-    provider: 'prometheus' | 'cloudwatch' | 'datadog';
+    provider: "prometheus" | "cloudwatch" | "datadog";
     interval: number;
   };
   tracing: {
     enabled: boolean;
-    provider: 'opentelemetry' | 'jaeger' | 'zipkin';
+    provider: "opentelemetry" | "jaeger" | "zipkin";
     sampling_rate: number;
   };
   logging: {
-    level: 'debug' | 'info' | 'warn' | 'error';
-    format: 'json' | 'text';
+    level: "debug" | "info" | "warn" | "error";
+    format: "json" | "text";
     destinations: string[];
   };
   alerts: {
     enabled: boolean;
-    channels: ('pagerduty' | 'slack' | 'email' | 'webhook')[];
+    channels: ("pagerduty" | "slack" | "email" | "webhook")[];
     rules: AlertRule[];
   };
 }
@@ -137,7 +146,7 @@ export interface AlertRule {
   condition: string;
   threshold: number;
   duration: string;
-  severity: 'critical' | 'high' | 'medium' | 'low';
+  severity: "critical" | "high" | "medium" | "low";
   channels: string[];
 }
 
@@ -150,7 +159,7 @@ export interface KBError extends Error {
 }
 
 // Operation result type for better error handling
-export type Result<T, E = KBError> = 
+export type Result<T, E = KBError> =
   | { success: true; data: T }
   | { success: false; error: E };
 
@@ -182,7 +191,7 @@ export interface EncryptedData {
 
 // Health check types
 export interface HealthStatus {
-  status: 'healthy' | 'degraded' | 'unhealthy';
+  status: "healthy" | "degraded" | "unhealthy";
   version: string;
   uptime: number;
   checks: HealthCheck[];
@@ -190,7 +199,7 @@ export interface HealthStatus {
 
 export interface HealthCheck {
   name: string;
-  status: 'pass' | 'fail' | 'warn';
+  status: "pass" | "fail" | "warn";
   duration_ms: number;
   message?: string;
   metadata?: Record<string, any>;
@@ -199,7 +208,7 @@ export interface HealthCheck {
 // Metrics types
 export interface Metric {
   name: string;
-  type: 'counter' | 'gauge' | 'histogram' | 'summary';
+  type: "counter" | "gauge" | "histogram" | "summary";
   value: number;
   labels: Record<string, string>;
   timestamp: string;

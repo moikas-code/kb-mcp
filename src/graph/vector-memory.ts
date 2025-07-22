@@ -133,12 +133,15 @@ export class VectorMemory implements IVectorMemory {
 
     const result = await this.connection.query(cypher);
     
-    if (result.success && result.data) {
+    if (result.success && result.data && Array.isArray(result.data)) {
+      console.log(`Loading ${result.data.length} existing vectors into index`);
       for (const row of result.data) {
-        if (row.embedding && Array.isArray(row.embedding)) {
+        if (row.embedding && Array.isArray(row.embedding) && row.id) {
           await this.vectorIndex.addVector(row.id, row.embedding, row.n);
         }
       }
+    } else {
+      console.log('No existing vectors found to load');
     }
   }
 
@@ -401,39 +404,65 @@ export class VectorMemory implements IVectorMemory {
     embedding: number[],
     metadata?: Record<string, any>
   ): Promise<Result<void>> {
-    const cypher = `
-      MATCH (n {id: $nodeId})
-      SET n.embedding = $embedding,
-          n.embedding_model = $model,
-          n.embedding_updated = datetime()
-      ${metadata ? ', n += $metadata' : ''}
-      RETURN n
-    `;
+    try {
+      // Generate embedding if empty array provided
+      let finalEmbedding = embedding;
+      if (embedding.length === 0 && metadata?.content) {
+        try {
+          finalEmbedding = await this.generateEmbedding(metadata.content);
+        } catch (error) {
+          console.warn('Failed to generate embedding:', error);
+          // Store without embedding rather than failing
+          finalEmbedding = [];
+        }
+      }
 
-    const params = {
-      nodeId,
-      embedding,
-      model: this.modelName,
-      metadata,
-    };
+      const cypher = `
+        MATCH (n {id: $nodeId})
+        SET n.embedding = $embedding,
+            n.embedding_model = $model,
+            n.embedding_updated = datetime()
+        ${metadata ? ', n += $metadata' : ''}
+        RETURN n
+      `;
 
-    const result = await this.connection.query(cypher, params);
-    
-    if (!result.success) {
+      const params = {
+        nodeId,
+        embedding: finalEmbedding,
+        model: this.modelName,
+        metadata,
+      };
+
+      const result = await this.connection.query(cypher, params);
+      
+      if (!result.success) {
+        return {
+          success: false,
+          error: toKBError(result.error, { operation: 'storeEmbedding' }),
+        };
+      }
+
+      if (!result.data?.[0]) {
+        return {
+          success: false,
+          error: toKBError('Node not found', { operation: 'storeEmbedding' }),
+        };
+      }
+
+      const node = result.data[0].n;
+
+      // Add to vector index if embedding was generated
+      if (finalEmbedding.length > 0) {
+        await this.vectorIndex.addVector(nodeId, finalEmbedding, node);
+      }
+
+      return { success: true, data: undefined };
+    } catch (error) {
       return {
         success: false,
-        error: toKBError(result.error, { operation: 'storeEmbedding' }),
+        error: toKBError(error, { operation: 'storeEmbedding' }),
       };
     }
-
-    if (!result.data?.[0]) {
-      return {
-        success: false,
-        error: toKBError('Node not found', { operation: 'storeEmbedding' }),
-      };
-    }
-
-    return { success: true, data: undefined };
   }
 
   /**

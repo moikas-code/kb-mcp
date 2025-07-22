@@ -22,7 +22,7 @@ console.log('Building minimal CLI...');
 try {
   // Build the CLI with esbuild
   await build({
-    entryPoints: [path.join(projectRoot, 'src/cli/basic-cli.ts')],
+    entryPoints: [path.join(projectRoot, 'src/cli/index.ts')],
     bundle: true,
     platform: 'node',
     target: 'node18',

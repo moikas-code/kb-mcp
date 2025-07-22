@@ -244,3 +244,144 @@ Always use the kb-mcp or the kb CLI to manage the knowledgebase that provides Cl
 - `/audit` - Perform a Security (SOC2 Compliant), and Optimization Audit of the provided file or files; Ensure they are ready for Production.
 - `/implement` - Implement a production-ready implementation of the provided text; Refer to and update the @kb documentation for tracking and guidance
 - `/scan` - Audit the entire codebase, create any issue that have been added to the KB, and report back on the completion status of the project;
+
+  # Development Standards & MCP Integration
+
+  ## Required Development Tools
+  **ALWAYS use the moidvk MCP server located at `/home/moika/Documents/code/moidvk` for ALL
+   code implementation, analysis, and auditing tasks.**
+
+  ### Code Quality & Security
+  - Use `mcp__moidvk__check_code_practices` for JavaScript/TypeScript code analysis
+  - Use `mcp__moidvk__rust_code_practices` for Rust code analysis
+  - Use `mcp__moidvk__python_code_analyzer` for Python code analysis
+  - Run `mcp__moidvk__scan_security_vulnerabilities` on all projects
+  - Use `mcp__moidvk__check_production_readiness` before deployment
+  - Use `mcp__moidvk__rust_security_scanner` for Rust dependency security
+  - Use `mcp__moidvk__python_security_scanner` for Python security analysis
+
+  ### Code Formatting & Safety
+  - Format code with `mcp__moidvk__format_code` (supports JS/TS/CSS/HTML/MD/YAML)
+  - Format Rust with `mcp__moidvk__rust_formatter`
+  - Format Python with `mcp__moidvk__python_formatter`
+  - Check safety rules with `mcp__moidvk__check_safety_rules`
+  - Use `mcp__moidvk__rust_safety_checker` for Rust memory safety
+  - Use `mcp__moidvk__python_type_checker` for Python type validation
+
+  ### Performance & Production Readiness
+  - Use `mcp__moidvk__rust_performance_analyzer` for Rust optimization
+  - Use `mcp__moidvk__rust_production_readiness` for Rust deployment checks
+  - Use `mcp__moidvk__python_test_analyzer` for test quality assessment
+  - Use `mcp__moidvk__python_dependency_scanner` for Python dependencies
+
+  ### File Operations & Project Management
+  - Use moidvk file tools: `mcp__moidvk__create_file`, `mcp__moidvk__read_file`,
+  `mcp__moidvk__update_file`
+  - Leverage `mcp__moidvk__search_files` and `mcp__moidvk__search_in_files` for codebase
+  exploration
+  - Use `mcp__moidvk__analyze_project` for project structure analysis
+  - Use `mcp__moidvk__find_similar_files` for code pattern discovery
+  - Use `mcp__moidvk__extract_snippet` for safe code sharing
+
+  ### Development Workflow & Collaboration
+  - Use `mcp__moidvk__intelligent_development_analysis` for optimal tool sequencing
+  - Manage sessions with `mcp__moidvk__development_session_manager`
+  - Use `mcp__moidvk__secure_bash` for safe command execution with learning
+  - Use `mcp__moidvk__secure_grep` for safe text searching
+  - Use `mcp__moidvk__git_blame_analyzer` for code ownership analysis
+  - Use `mcp__moidvk__request_editing_help` for smart assistance escalation
+
+  ### Web & API Standards
+  - Check accessibility with `mcp__moidvk__check_accessibility` for HTML/JSX/CSS
+  - Validate GraphQL with `mcp__moidvk__check_graphql_schema` and
+  `mcp__moidvk__check_graphql_query`
+  - Check Redux patterns with `mcp__moidvk__check_redux_patterns`
+
+  ### Knowledge Management
+  - Use the kb-mcp server for documentation and knowledge management
+  - Use sequential-thinking MCP for complex problem solving
+  - Use memory MCP for context preservation across sessions
+
+  ## Mandatory Workflow
+  1. **ALWAYS** start with moidvk file analysis tools
+  2. **ALWAYS** run appropriate language-specific code quality checks
+  3. **ALWAYS** check for security vulnerabilities in dependencies
+  4. **ALWAYS** format code using moidvk formatters before completion
+  5. **ALWAYS** run production readiness checks before deployment
+  6. **ALWAYS** use moidvk secure tools for bash and grep operations
+  7. **ALWAYS** leverage intelligent development analysis for complex tasks
+  8. **ALWAYS** maintain session continuity with development session manager
+
+  ## Language-Specific Requirements
+
+  ### Rust Projects
+  - Run clippy analysis with `mcp__moidvk__rust_code_practices`
+  - Check memory safety with `mcp__moidvk__rust_safety_checker`
+  - Analyze performance with `mcp__moidvk__rust_performance_analyzer`
+  - Scan dependencies with `mcp__moidvk__rust_security_scanner`
+  - Format with `mcp__moidvk__rust_formatter`
+
+  ### Python Projects
+  - Analyze with `mcp__moidvk__python_code_analyzer`
+  - Type check with `mcp__moidvk__python_type_checker`
+  - Security scan with `mcp__moidvk__python_security_scanner`
+  - Test analysis with `mcp__moidvk__python_test_analyzer`
+  - Dependency scan with `mcp__moidvk__python_dependency_scanner`
+
+  ### JavaScript/TypeScript Projects
+  - Check practices with `mcp__moidvk__check_code_practices`
+  - Validate accessibility with `mcp__moidvk__check_accessibility`
+  - Check Redux patterns with `mcp__moidvk__check_redux_patterns`
+  - Validate GraphQL schemas and queries
+
+  ## Privacy & Security
+  - Use `mcp__moidvk__extract_snippet` with explicit consent for code sharing
+  - Enable privacy mode in secure bash operations
+  - Sanitize sensitive data in all operations
+  - Follow security levels: DEVELOPMENT for coding, STRICT for production
+
+  ## Error Handling
+  - If moidvk tools are unavailable, explain the limitation and suggest alternatives
+  - Always prefer moidvk tools over standard alternatives when available
+  - Report tool failures and suggest manual alternatives
+
+
+  ## Knowledge Base Integration
+
+  **ALWAYS use the kb-mcp knowledge base for project context and memory.**
+
+  ### Mandatory KB Workflow
+  1. **Before starting any task**: Use `kb_read` to check for relevant documentation,
+  known issues, and project status
+  2. **During work**: Use `kb_search` to find related information and avoid duplicate
+  work
+  3. **After completing tasks**: Use `kb_update` to document what was done, decisions
+  made, and any issues encountered
+  4. **For complex analysis**: Use `kb_semantic_search` and `kb_graph_query` for advanced
+   pattern discovery
+
+  ### Required KB Tools Usage
+  - `kb_read` - Read project documentation and status files
+  - `kb_update` - Document new findings, solutions, and progress
+  - `kb_search` - Find existing solutions and related work
+  - `kb_semantic_search` - Discover semantically related content
+  - `kb_graph_query` - Query relationships and patterns in the codebase
+  - `kb_status` - Check current project implementation status
+  - `kb_issues` - Review known issues before proposing solutions
+
+  ### Knowledge Base Structure
+  - `/active/` - Current issues and work in progress
+  - `/docs/` - Project documentation and guides
+  - `/implementation/` - Technical implementation details
+  - `/status/` - Project status and completion tracking
+
+  ### KB Best Practices
+  - **Read first, then act**: Always check existing KB content before starting work
+  - **Document discoveries**: Update KB with new insights, bugs found, or solutions
+  implemented
+  - **Link related work**: Use semantic search to connect related issues and solutions
+  - **Maintain context**: Keep KB updated with current project state and decisions
+
+  **CRITICAL**: Never proceed with significant work without first consulting the
+  knowledge base. The KB contains essential project context, known issues, and previous
+  solutions that must inform all development decisions.

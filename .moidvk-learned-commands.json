@@ -1,0 +1,7 @@
+{
+  "version": "1.0.0",
+  "timestamp": "2025-07-21T21:32:13.100Z",
+  "commands": [
+    "cd /home/moika/Documents/code/kb-mcp && bun run type-check"
+  ]
+}

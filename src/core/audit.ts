@@ -3,30 +3,30 @@
  * Provides tamper-proof audit trail with encryption and retention policies
  */
 
-import { promises as fs } from 'fs';
-import path from 'path';
-import { createHash } from 'crypto';
-import winston from 'winston';
-import { v4 as uuidv4 } from 'uuid';
-import { 
-  AuditEvent, 
-  SecurityContext, 
+import { promises as fs } from "fs";
+import path from "path";
+import { createHash } from "crypto";
+import winston from "winston";
+import { v4 as uuidv4 } from "uuid";
+import {
+  AuditEvent,
+  SecurityContext,
   ComplianceConfig,
-  Result
-} from '../types/index.js';
-import { EncryptionService } from './security.js';
+  Result,
+} from "../types/index.js";
+import { EncryptionService } from "./security";
 
 // Audit log format version
-const AUDIT_LOG_VERSION = '1.0';
+const AUDIT_LOG_VERSION = "1.0";
 
 // Default retention periods (in days)
 const DEFAULT_RETENTION_PERIODS = {
-  auth: 548,          // 18 months
-  authz: 365,         // 12 months
-  data_access: 365,   // 12 months
+  auth: 548, // 18 months
+  authz: 365, // 12 months
+  data_access: 365, // 12 months
   config_change: 2555, // 7 years
-  security: 730,      // 24 months
-  error: 180,         // 6 months
+  security: 730, // 24 months
+  error: 180, // 6 months
 };
 
 /**
@@ -37,23 +37,23 @@ export class AuditLogger {
   private config: ComplianceConfig;
   private auditPath: string;
   private encryptionKey?: string;
-  private hashChain: string = '0';  // Genesis hash
-  
+  private hashChain: string = "0"; // Genesis hash
+
   constructor(
     config: ComplianceConfig,
     auditPath: string,
-    encryptionKey?: string
+    encryptionKey?: string,
   ) {
     this.config = config;
     this.auditPath = auditPath;
     this.encryptionKey = encryptionKey;
-    
+
     // Initialize Winston logger
     this.logger = winston.createLogger({
-      level: 'info',
+      level: "info",
       format: winston.format.combine(
         winston.format.timestamp(),
-        winston.format.json()
+        winston.format.json(),
       ),
       transports: this.createTransports(),
     });
@@ -64,27 +64,27 @@ export class AuditLogger {
    */
   private createTransports(): winston.transport[] {
     const transports: winston.transport[] = [];
-    
+
     // Always include file transport for audit logs
     transports.push(
       new winston.transports.File({
-        filename: path.join(this.auditPath, 'audit.log'),
+        filename: path.join(this.auditPath, "audit.log"),
         maxsize: 100 * 1024 * 1024, // 100MB
         maxFiles: 10,
         tailable: true,
-      })
+      }),
     );
-    
+
     // Add additional transports based on config
-    if (this.config.audit.destinations.includes('siem')) {
+    if (this.config.audit.destinations.includes("siem")) {
       // In production, would add SIEM transport
       transports.push(
         new winston.transports.File({
-          filename: path.join(this.auditPath, 'siem-export.log'),
-        })
+          filename: path.join(this.auditPath, "siem-export.log"),
+        }),
       );
     }
-    
+
     return transports;
   }
 
@@ -93,18 +93,18 @@ export class AuditLogger {
    */
   async log(
     event: Partial<AuditEvent>,
-    context?: SecurityContext
+    context?: SecurityContext,
   ): Promise<Result<void>> {
     try {
       // Create complete audit event
       const auditEvent = await this.createAuditEvent(event, context);
-      
+
       // Validate event
       const validation = this.validateAuditEvent(auditEvent);
       if (!validation.success) {
         return validation;
       }
-      
+
       // Add integrity hash
       auditEvent.metadata = {
         ...auditEvent.metadata,
@@ -112,32 +112,33 @@ export class AuditLogger {
         previous_hash: this.hashChain,
         version: AUDIT_LOG_VERSION,
       };
-      
+
       // Update hash chain
       this.hashChain = auditEvent.metadata.integrity_hash;
-      
+
       // Encrypt if required
-      const logData = this.config.audit.encryption_required && this.encryptionKey
-        ? await this.encryptAuditEvent(auditEvent)
-        : auditEvent;
-      
+      const logData =
+        this.config.audit.encryption_required && this.encryptionKey
+          ? await this.encryptAuditEvent(auditEvent)
+          : auditEvent;
+
       // Log the event
-      this.logger.info('audit_event', logData);
-      
+      this.logger.info("audit_event", logData);
+
       // Check for alerts
       await this.checkAlertConditions(auditEvent);
-      
+
       return { success: true, data: undefined };
     } catch (error) {
       return {
         success: false,
         error: {
-          name: 'AuditError',
+          name: "AuditError",
           message: `Failed to log audit event: ${error}`,
-          code: 'AUDIT_LOG_ERROR',
+          code: "AUDIT_LOG_ERROR",
           statusCode: 500,
           isOperational: true,
-        }
+        },
       };
     }
   }
@@ -147,17 +148,17 @@ export class AuditLogger {
    */
   private async createAuditEvent(
     event: Partial<AuditEvent>,
-    context?: SecurityContext
+    context?: SecurityContext,
   ): Promise<AuditEvent> {
     const now = new Date().toISOString();
-    
+
     return {
       event_id: event.event_id || uuidv4(),
       timestamp: event.timestamp || now,
-      event_type: event.event_type || 'data_access',
-      action: event.action || 'unknown',
-      resource: event.resource || 'unknown',
-      result: event.result || 'success',
+      event_type: event.event_type || "data_access",
+      action: event.action || "unknown",
+      resource: event.resource || "unknown",
+      result: event.result || "success",
       user_id: context?.user_id || event.user_id,
       session_id: context?.session_id || event.session_id,
       ip_address: context?.ip_address || event.ip_address,
@@ -177,37 +178,44 @@ export class AuditLogger {
    * Validate audit event
    */
   private validateAuditEvent(event: AuditEvent): Result<void> {
-    const requiredFields = ['event_id', 'timestamp', 'event_type', 'action', 'resource', 'result'];
-    
+    const requiredFields = [
+      "event_id",
+      "timestamp",
+      "event_type",
+      "action",
+      "resource",
+      "result",
+    ];
+
     for (const field of requiredFields) {
       if (!event[field as keyof AuditEvent]) {
         return {
           success: false,
           error: {
-            name: 'ValidationError',
+            name: "ValidationError",
             message: `Missing required field: ${field}`,
-            code: 'MISSING_FIELD',
+            code: "MISSING_FIELD",
             statusCode: 400,
             isOperational: true,
-          }
+          },
         };
       }
     }
-    
+
     // Validate timestamp format
     if (!this.isValidISO8601(event.timestamp)) {
       return {
         success: false,
         error: {
-          name: 'ValidationError',
-          message: 'Invalid timestamp format',
-          code: 'INVALID_TIMESTAMP',
+          name: "ValidationError",
+          message: "Invalid timestamp format",
+          code: "INVALID_TIMESTAMP",
           statusCode: 400,
           isOperational: true,
-        }
+        },
       };
     }
-    
+
     return { success: true, data: undefined };
   }
 
@@ -224,8 +232,8 @@ export class AuditLogger {
       result: event.result,
       previous_hash: this.hashChain,
     });
-    
-    return createHash('sha256').update(data).digest('hex');
+
+    return createHash("sha256").update(data).digest("hex");
   }
 
   /**
@@ -235,11 +243,11 @@ export class AuditLogger {
     if (!this.encryptionKey) {
       return event;
     }
-    
+
     // Separate PII fields for special handling
     const piiData: Record<string, any> = {};
     const nonPiiData: Record<string, any> = { ...event };
-    
+
     if (event.pii_fields) {
       for (const field of event.pii_fields) {
         if (field in event) {
@@ -248,17 +256,17 @@ export class AuditLogger {
         }
       }
     }
-    
+
     // Encrypt PII data separately
     if (Object.keys(piiData).length > 0) {
       const encrypted = await EncryptionService.encrypt(
         JSON.stringify(piiData),
         this.encryptionKey,
-        'audit-pii'
+        "audit-pii",
       );
       nonPiiData.encrypted_pii = encrypted;
     }
-    
+
     return nonPiiData;
   }
 
@@ -267,23 +275,23 @@ export class AuditLogger {
    */
   private async checkAlertConditions(event: AuditEvent): Promise<void> {
     // Check for security alerts
-    if (event.event_type === 'security' && event.severity === 'critical') {
-      await this.triggerAlert('Critical security event', event);
+    if (event.event_type === "security" && event.severity === "critical") {
+      await this.triggerAlert("Critical security event", event);
     }
-    
+
     // Check for failed authentication attempts
-    if (event.event_type === 'auth' && event.result === 'failure') {
+    if (event.event_type === "auth" && event.result === "failure") {
       await this.checkFailedAuthAttempts(event);
     }
-    
+
     // Check for privilege escalation
-    if (event.action === 'privilege_escalation') {
-      await this.triggerAlert('Privilege escalation attempt', event);
+    if (event.action === "privilege_escalation") {
+      await this.triggerAlert("Privilege escalation attempt", event);
     }
-    
+
     // Check for configuration changes
-    if (event.event_type === 'config_change') {
-      await this.triggerAlert('Configuration change detected', event);
+    if (event.event_type === "config_change") {
+      await this.triggerAlert("Configuration change detected", event);
     }
   }
 
@@ -301,7 +309,10 @@ export class AuditLogger {
   /**
    * Trigger an alert
    */
-  private async triggerAlert(message: string, event: AuditEvent): Promise<void> {
+  private async triggerAlert(
+    message: string,
+    event: AuditEvent,
+  ): Promise<void> {
     // In production, would send to configured alert channels
     console.error(`AUDIT ALERT: ${message}`, {
       event_id: event.event_id,
@@ -316,15 +327,15 @@ export class AuditLogger {
    */
   async query(
     filters: AuditQueryFilters,
-    options?: AuditQueryOptions
+    options?: AuditQueryOptions,
   ): Promise<Result<AuditEvent[]>> {
     try {
       // In production, would query from appropriate storage
       // For now, read from file
-      const logFile = path.join(this.auditPath, 'audit.log');
-      const content = await fs.readFile(logFile, 'utf8');
-      const lines = content.trim().split('\n');
-      
+      const logFile = path.join(this.auditPath, "audit.log");
+      const content = await fs.readFile(logFile, "utf8");
+      const lines = content.trim().split("\n");
+
       const events: AuditEvent[] = [];
       for (const line of lines) {
         try {
@@ -336,22 +347,22 @@ export class AuditLogger {
           // Skip malformed lines
         }
       }
-      
+
       // Apply sorting and pagination
       const sorted = this.sortEvents(events, options?.sort);
       const paginated = this.paginateEvents(sorted, options);
-      
+
       return { success: true, data: paginated };
     } catch (error) {
       return {
         success: false,
         error: {
-          name: 'QueryError',
+          name: "QueryError",
           message: `Failed to query audit logs: ${error}`,
-          code: 'QUERY_ERROR',
+          code: "QUERY_ERROR",
           statusCode: 500,
           isOperational: true,
-        }
+        },
       };
     }
   }
@@ -362,22 +373,22 @@ export class AuditLogger {
   async export(
     startDate: Date,
     endDate: Date,
-    format: 'json' | 'csv' = 'json'
+    format: "json" | "csv" = "json",
   ): Promise<Result<string>> {
     const filters: AuditQueryFilters = {
       timestamp_start: startDate.toISOString(),
       timestamp_end: endDate.toISOString(),
     };
-    
+
     const result = await this.query(filters);
     if (!result.success) {
       return result;
     }
-    
-    if (format === 'csv') {
+
+    if (format === "csv") {
       return { success: true, data: this.eventsToCSV(result.data) };
     }
-    
+
     return { success: true, data: JSON.stringify(result.data, null, 2) };
   }
 
@@ -387,35 +398,37 @@ export class AuditLogger {
   async cleanupOldLogs(): Promise<Result<number>> {
     try {
       let deletedCount = 0;
-      
+
       // For each event type, check retention period
-      for (const [eventType, retentionDays] of Object.entries(DEFAULT_RETENTION_PERIODS)) {
+      for (const [eventType, retentionDays] of Object.entries(
+        DEFAULT_RETENTION_PERIODS,
+      )) {
         const cutoffDate = new Date();
         cutoffDate.setDate(cutoffDate.getDate() - retentionDays);
-        
+
         // In production, would delete from appropriate storage
         // For now, just count what would be deleted
         const result = await this.query({
-          event_type: eventType as AuditEvent['event_type'],
+          event_type: eventType as AuditEvent["event_type"],
           timestamp_end: cutoffDate.toISOString(),
         });
-        
+
         if (result.success) {
           deletedCount += result.data.length;
         }
       }
-      
+
       return { success: true, data: deletedCount };
     } catch (error) {
       return {
         success: false,
         error: {
-          name: 'CleanupError',
+          name: "CleanupError",
           message: `Failed to cleanup old logs: ${error}`,
-          code: 'CLEANUP_ERROR',
+          code: "CLEANUP_ERROR",
           statusCode: 500,
           isOperational: true,
-        }
+        },
       };
     }
   }
@@ -425,39 +438,39 @@ export class AuditLogger {
    */
   async verifyIntegrity(
     startDate?: Date,
-    endDate?: Date
+    endDate?: Date,
   ): Promise<Result<IntegrityReport>> {
     try {
       const filters: AuditQueryFilters = {};
       if (startDate) filters.timestamp_start = startDate.toISOString();
       if (endDate) filters.timestamp_end = endDate.toISOString();
-      
-      const result = await this.query(filters, { sort: 'timestamp_asc' });
+
+      const result = await this.query(filters, { sort: "timestamp_asc" });
       if (!result.success) {
         return {
           success: false,
           error: result.error,
         };
       }
-      
+
       let validCount = 0;
       let invalidCount = 0;
-      let previousHash = '0';
+      let previousHash = "0";
       const issues: string[] = [];
-      
+
       for (const event of result.data) {
         if (!event.metadata?.integrity_hash) {
           invalidCount++;
           issues.push(`Event ${event.event_id} missing integrity hash`);
           continue;
         }
-        
+
         if (event.metadata.previous_hash !== previousHash) {
           invalidCount++;
           issues.push(`Event ${event.event_id} hash chain broken`);
           continue;
         }
-        
+
         // Recalculate hash and verify
         const expectedHash = await this.calculateIntegrityHash(event);
         if (event.metadata.integrity_hash !== expectedHash) {
@@ -465,11 +478,11 @@ export class AuditLogger {
           issues.push(`Event ${event.event_id} integrity hash mismatch`);
           continue;
         }
-        
+
         validCount++;
         previousHash = event.metadata.integrity_hash;
       }
-      
+
       return {
         success: true,
         data: {
@@ -479,18 +492,18 @@ export class AuditLogger {
           integrity_valid: invalidCount === 0,
           issues,
           checked_at: new Date().toISOString(),
-        }
+        },
       };
     } catch (error) {
       return {
         success: false,
         error: {
-          name: 'IntegrityError',
+          name: "IntegrityError",
           message: `Failed to verify integrity: ${error}`,
-          code: 'INTEGRITY_ERROR',
+          code: "INTEGRITY_ERROR",
           statusCode: 500,
           isOperational: true,
-        }
+        },
       };
     }
   }
@@ -504,11 +517,11 @@ export class AuditLogger {
 
   private detectPIIFields(event: Partial<AuditEvent>): string[] {
     const piiFields: string[] = [];
-    
-    if (event.user_id) piiFields.push('user_id');
-    if (event.ip_address) piiFields.push('ip_address');
-    if (event.user_agent) piiFields.push('user_agent');
-    
+
+    if (event.user_id) piiFields.push("user_id");
+    if (event.ip_address) piiFields.push("ip_address");
+    if (event.user_agent) piiFields.push("user_agent");
+
     return piiFields;
   }
 
@@ -531,95 +544,95 @@ export class AuditLogger {
     if (filters.event_type && event.event_type !== filters.event_type) {
       return false;
     }
-    
+
     if (filters.user_id && event.user_id !== filters.user_id) {
       return false;
     }
-    
+
     if (filters.resource && !event.resource.includes(filters.resource)) {
       return false;
     }
-    
+
     if (filters.timestamp_start && event.timestamp < filters.timestamp_start) {
       return false;
     }
-    
+
     if (filters.timestamp_end && event.timestamp > filters.timestamp_end) {
       return false;
     }
-    
+
     return true;
   }
 
   private sortEvents(
     events: AuditEvent[],
-    sort?: 'timestamp_asc' | 'timestamp_desc'
+    sort?: "timestamp_asc" | "timestamp_desc",
   ): AuditEvent[] {
-    if (!sort || sort === 'timestamp_desc') {
+    if (!sort || sort === "timestamp_desc") {
       return events.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
     }
-    
+
     return events.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
   }
 
   private paginateEvents(
     events: AuditEvent[],
-    options?: AuditQueryOptions
+    options?: AuditQueryOptions,
   ): AuditEvent[] {
     const limit = options?.limit || 1000;
     const offset = options?.offset || 0;
-    
+
     return events.slice(offset, offset + limit);
   }
 
   private eventsToCSV(events: AuditEvent[]): string {
     if (events.length === 0) {
-      return '';
+      return "";
     }
-    
+
     const headers = [
-      'event_id',
-      'timestamp',
-      'event_type',
-      'action',
-      'resource',
-      'result',
-      'user_id',
-      'session_id',
-      'ip_address',
-      'severity',
+      "event_id",
+      "timestamp",
+      "event_type",
+      "action",
+      "resource",
+      "result",
+      "user_id",
+      "session_id",
+      "ip_address",
+      "severity",
     ];
-    
-    const rows = [headers.join(',')];
-    
+
+    const rows = [headers.join(",")];
+
     for (const event of events) {
-      const row = headers.map(header => {
+      const row = headers.map((header) => {
         const value = event[header as keyof AuditEvent];
-        return value ? `"${String(value).replace(/"/g, '""')}"` : '';
+        return value ? `"${String(value).replace(/"/g, '""')}"` : "";
       });
-      rows.push(row.join(','));
+      rows.push(row.join(","));
     }
-    
-    return rows.join('\n');
+
+    return rows.join("\n");
   }
 }
 
 // Type definitions for audit queries
 
 interface AuditQueryFilters {
-  event_type?: AuditEvent['event_type'];
+  event_type?: AuditEvent["event_type"];
   user_id?: string;
   resource?: string;
   timestamp_start?: string;
   timestamp_end?: string;
-  result?: AuditEvent['result'];
-  severity?: AuditEvent['severity'];
+  result?: AuditEvent["result"];
+  severity?: AuditEvent["severity"];
 }
 
 interface AuditQueryOptions {
   limit?: number;
   offset?: number;
-  sort?: 'timestamp_asc' | 'timestamp_desc';
+  sort?: "timestamp_asc" | "timestamp_desc";
 }
 
 interface IntegrityReport {

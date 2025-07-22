@@ -88,6 +88,20 @@ export class UnifiedMemory extends EventEmitter implements IUnifiedMemory {
     await this.connection.query('CREATE INDEX IF NOT EXISTS ON :Node(type)');
     await this.connection.query('CREATE INDEX IF NOT EXISTS ON :Node(memory_type)');
     
+    // Initialize vector memory subsystem
+    try {
+      const vectorResult = await this.vector.initialize();
+      if (vectorResult.success) {
+        console.log('Vector memory initialized successfully');
+      } else {
+        console.warn('Vector memory initialization failed:', vectorResult.error);
+        console.warn('Semantic search will not be available');
+      }
+    } catch (error) {
+      console.warn('Vector memory initialization error:', error);
+      console.warn('Semantic search will not be available');
+    }
+    
     // Start memory monitoring
     this.memoryManager.start(30000); // Check every 30 seconds
     

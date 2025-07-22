@@ -1,0 +1,1 @@
+Testing KB-MCP with moidvk tools - filesystem backend

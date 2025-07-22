@@ -49,6 +49,19 @@ export interface SecureMCPServerOptions {
 }
 
 /**
+ * Security middleware
+ */
+function securityMiddleware() {
+  return (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    // Add security headers
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('X-XSS-Protection', '1; mode=block');
+    next();
+  };
+}
+
+/**
  * Secure MCP Server implementation
  */
 export class SecureMCPServer {
@@ -344,9 +357,11 @@ export class SecureMCPServer {
     // MCP endpoints
     if (this.options.transport === 'websocket') {
       // WebSocket transport
-      const server = app.listen(this.options.port || options.connection?.port || 3000 || 3000);
-      const transport = new SSEServerTransport('/mcp', server);
-      await this.server.connect(transport);
+      const server = app.listen(this.options.port || 3000);
+      // Note: SSEServerTransport is not available in current SDK
+      // const transport = new SSEServerTransport('/mcp', server);
+      // await this.server.connect(transport);
+      console.error('WebSocket transport not yet implemented');
     } else {
       // HTTP transport
       app.post('/mcp/tools', async (req, res) => {
@@ -361,7 +376,7 @@ export class SecureMCPServer {
         }
       });
       
-      app.listen(this.options.port || options.connection?.port || 3000 || 3000);
+      app.listen(this.options.port || 3000);
     }
   }
 

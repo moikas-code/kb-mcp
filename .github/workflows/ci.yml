@@ -57,7 +57,7 @@ jobs:
         run: npm test
 
       - name: Upload coverage
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v4
         if: matrix.os == 'ubuntu-latest' && matrix.node == '20'
         with:
           files: ./coverage/lcov.info
@@ -85,7 +85,7 @@ jobs:
         run: npm audit --production
 
       - name: Run CodeQL Analysis
-        uses: github/codeql-action/analyze@v3
+        uses: github/codeql-action/analyze@v4
         with:
           languages: javascript,typescript
 
@@ -168,7 +168,7 @@ jobs:
       falkordb:
         image: falkordb/falkordb:latest
         ports:
-          - 6380:6379
+          - 6581:6379
         options: >-
           --health-cmd "redis-cli -p 6379 ping"
           --health-interval 10s
@@ -196,10 +196,84 @@ jobs:
       - name: Run integration tests
         env:
           FALKORDB_HOST: localhost
-          FALKORDB_PORT: 6380
+          FALKORDB_PORT: 6581
           REDIS_HOST: localhost
           REDIS_PORT: 6379
         run: npm run test:integration
+
+      - name: Test graph backend connection
+        env:
+          FALKORDB_HOST: localhost
+          FALKORDB_PORT: 6581
+        run: |
+          # Create test config for graph backend
+          cat > .kbconfig.test.yaml << EOF
+          type: graph
+          graph:
+            connection:
+              host: localhost
+              port: 6581
+              database: kb_test_graph
+            vector_dimensions: 1536
+            enable_temporal_queries: true
+            enable_semantic_search: true
+          EOF
+          
+          # Test graph backend initialization using TypeScript source
+          npx tsx -e "
+          async function test() {
+            try {
+              const { BackendManager } = await import('./src/core/backend-manager.js');
+              const path = await import('path');
+              
+              const manager = new BackendManager(process.cwd());
+              const configPath = path.join(process.cwd(), '.kbconfig.test.yaml');
+              
+              // Override config path for testing
+              (manager as any).configPath = configPath;
+              
+              const result = await manager.initialize();
+              if (!result.success) {
+                console.error('Graph backend test failed:', result.error.message);
+                process.exit(1);
+              }
+              console.log('✅ Graph backend connection successful');
+              
+              // Test backend switching
+              const switchResult = await manager.switchBackend('filesystem');
+              if (!switchResult.success) {
+                console.error('Backend switching test failed:', switchResult.error.message);
+                process.exit(1);
+              }
+              console.log('✅ Backend switching successful');
+            } catch (e) {
+              console.error('Test failed:', e.message);
+              process.exit(1);
+            }
+          }
+          test();
+          "
+
+      - name: Test KB CLI with graph backend
+        env:
+          FALKORDB_HOST: localhost
+          FALKORDB_PORT: 6581
+        run: |
+          # Copy test config to default location
+          cp .kbconfig.test.yaml .kbconfig.yaml
+          
+          # Test KB CLI commands with graph backend
+          timeout 30s node dist/cli/index.js serve &
+          sleep 5
+          
+          # Test that server started (will be running in background)
+          if pgrep -f "dist/cli/index.js serve" > /dev/null; then
+            echo "✅ KB serve with graph backend started successfully"
+            pkill -f "dist/cli/index.js serve"
+          else
+            echo "❌ KB serve with graph backend failed to start"
+            exit 1
+          fi
 
   docker:
     name: Docker Build
@@ -210,7 +284,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Build Docker image
         uses: docker/build-push-action@v5

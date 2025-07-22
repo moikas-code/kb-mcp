@@ -4,6 +4,47 @@
  */
 
 /**
+ * Code-specific node and edge types
+ */
+export const CODE_NODE_TYPES = {
+  FUNCTION: 'Function',
+  CLASS: 'Class',
+  INTERFACE: 'Interface',
+  TYPE: 'Type',
+  VARIABLE: 'Variable',
+  CONSTANT: 'Constant',
+  MODULE: 'Module',
+  PACKAGE: 'Package',
+  IMPORT: 'Import',
+  EXPORT: 'Export',
+  NAMESPACE: 'Namespace',
+  ENUM: 'Enum',
+  CONSTRUCTOR: 'Constructor',
+  METHOD: 'Method',
+  PROPERTY: 'Property'
+} as const;
+
+export const CODE_EDGE_TYPES = {
+  CALLS: 'CALLS',
+  IMPORTS: 'IMPORTS',
+  EXPORTS: 'EXPORTS',
+  INHERITS: 'INHERITS',
+  IMPLEMENTS: 'IMPLEMENTS',
+  DEPENDS_ON: 'DEPENDS_ON',
+  DEFINES: 'DEFINES',
+  USES: 'USES',
+  MODIFIES: 'MODIFIES',
+  CONTAINS: 'CONTAINS',
+  REFERENCES: 'REFERENCES',
+  EXTENDS: 'EXTENDS',
+  OVERRIDES: 'OVERRIDES',
+  INSTANTIATES: 'INSTANTIATES',
+  THROWS: 'THROWS',
+  RETURNS: 'RETURNS',
+  PARAMETER_OF: 'PARAMETER_OF'
+} as const;
+
+/**
  * Node creation constraints and indexes
  */
 export const GRAPH_SCHEMA = {
@@ -18,6 +59,24 @@ export const GRAPH_SCHEMA = {
     'CREATE INDEX ON :Insight(id)',
     'CREATE INDEX ON :Memory(id)',
     
+    // Code entity indexes
+    'CREATE INDEX ON :Function(id)',
+    'CREATE INDEX ON :Function(name)',
+    'CREATE INDEX ON :Function(signature)',
+    'CREATE INDEX ON :Class(id)',
+    'CREATE INDEX ON :Class(name)',
+    'CREATE INDEX ON :Interface(id)',
+    'CREATE INDEX ON :Interface(name)',
+    'CREATE INDEX ON :Module(id)',
+    'CREATE INDEX ON :Module(name)',
+    'CREATE INDEX ON :Module(path)',
+    'CREATE INDEX ON :Variable(id)',
+    'CREATE INDEX ON :Variable(name)',
+    'CREATE INDEX ON :Type(id)',
+    'CREATE INDEX ON :Type(name)',
+    'CREATE INDEX ON :Package(id)',
+    'CREATE INDEX ON :Package(name)',
+    
     // Create property indexes for fast lookups
     'CREATE INDEX ON :Concept(name)',
     'CREATE INDEX ON :Entity(name)',
@@ -26,11 +85,22 @@ export const GRAPH_SCHEMA = {
     'CREATE INDEX ON :Memory(session_id)',
     'CREATE INDEX ON :Memory(user_id)',
     
+    // Code-specific property indexes
+    'CREATE INDEX ON :Function(file_path)',
+    'CREATE INDEX ON :Class(file_path)',
+    'CREATE INDEX ON :Module(file_path)',
+    'CREATE INDEX ON :Function(language)',
+    'CREATE INDEX ON :Class(language)',
+    'CREATE INDEX ON :Function(complexity)',
+    'CREATE INDEX ON :Function(line_count)',
+    
     // Full-text search indexes
     'CREATE FULLTEXT INDEX conceptSearch ON :Concept(name, description)',
     'CREATE FULLTEXT INDEX factSearch ON :Fact(statement)',
     'CREATE FULLTEXT INDEX documentSearch ON :Document(title, content)',
     'CREATE FULLTEXT INDEX entitySearch ON :Entity(name, aliases)',
+    'CREATE FULLTEXT INDEX codeSearch ON :Function,Class,Interface(name, signature, documentation)',
+    'CREATE FULLTEXT INDEX moduleSearch ON :Module(name, path, description)',
   ],
 
   // Node templates
@@ -207,6 +277,172 @@ export const GRAPH_SCHEMA = {
       })
       RETURN n
     `,
+
+    // Code entity templates
+    function: `
+      CREATE (n:Function {
+        id: $id,
+        type: 'function',
+        name: $name,
+        signature: $signature,
+        file_path: $file_path,
+        line: $line,
+        column: $column,
+        end_line: $end_line,
+        language: $language,
+        documentation: $documentation,
+        parameters: $parameters,
+        return_type: $return_type,
+        visibility: $visibility,
+        is_async: $is_async,
+        is_static: $is_static,
+        complexity: $complexity,
+        line_count: $line_count,
+        created_at: datetime(),
+        updated_at: datetime(),
+        accessed_at: datetime(),
+        access_count: 0,
+        importance: $importance,
+        confidence: $confidence,
+        embedding: $embedding,
+        metadata: $metadata
+      })
+      RETURN n
+    `,
+
+    class: `
+      CREATE (n:Class {
+        id: $id,
+        type: 'class',
+        name: $name,
+        file_path: $file_path,
+        line: $line,
+        column: $column,
+        end_line: $end_line,
+        language: $language,
+        documentation: $documentation,
+        extends: $extends,
+        implements: $implements,
+        visibility: $visibility,
+        is_abstract: $is_abstract,
+        is_final: $is_final,
+        methods: $methods,
+        properties: $properties,
+        constructors: $constructors,
+        created_at: datetime(),
+        updated_at: datetime(),
+        accessed_at: datetime(),
+        access_count: 0,
+        importance: $importance,
+        confidence: $confidence,
+        embedding: $embedding,
+        metadata: $metadata
+      })
+      RETURN n
+    `,
+
+    interface: `
+      CREATE (n:Interface {
+        id: $id,
+        type: 'interface',
+        name: $name,
+        file_path: $file_path,
+        line: $line,
+        column: $column,
+        end_line: $end_line,
+        language: $language,
+        documentation: $documentation,
+        extends: $extends,
+        methods: $methods,
+        properties: $properties,
+        created_at: datetime(),
+        updated_at: datetime(),
+        accessed_at: datetime(),
+        access_count: 0,
+        importance: $importance,
+        confidence: $confidence,
+        embedding: $embedding,
+        metadata: $metadata
+      })
+      RETURN n
+    `,
+
+    module: `
+      CREATE (n:Module {
+        id: $id,
+        type: 'module',
+        name: $name,
+        path: $path,
+        file_path: $file_path,
+        language: $language,
+        description: $description,
+        exports: $exports,
+        imports: $imports,
+        dependencies: $dependencies,
+        size: $size,
+        line_count: $line_count,
+        created_at: datetime(),
+        updated_at: datetime(),
+        accessed_at: datetime(),
+        access_count: 0,
+        importance: $importance,
+        confidence: $confidence,
+        embedding: $embedding,
+        metadata: $metadata
+      })
+      RETURN n
+    `,
+
+    variable: `
+      CREATE (n:Variable {
+        id: $id,
+        type: 'variable',
+        name: $name,
+        file_path: $file_path,
+        line: $line,
+        column: $column,
+        language: $language,
+        variable_type: $variable_type,
+        scope: $scope,
+        visibility: $visibility,
+        is_constant: $is_constant,
+        is_static: $is_static,
+        initial_value: $initial_value,
+        created_at: datetime(),
+        updated_at: datetime(),
+        accessed_at: datetime(),
+        access_count: 0,
+        importance: $importance,
+        confidence: $confidence,
+        embedding: $embedding,
+        metadata: $metadata
+      })
+      RETURN n
+    `,
+
+    type_definition: `
+      CREATE (n:Type {
+        id: $id,
+        type: 'type',
+        name: $name,
+        file_path: $file_path,
+        line: $line,
+        column: $column,
+        language: $language,
+        kind: $kind,
+        definition: $definition,
+        generic_parameters: $generic_parameters,
+        created_at: datetime(),
+        updated_at: datetime(),
+        accessed_at: datetime(),
+        access_count: 0,
+        importance: $importance,
+        confidence: $confidence,
+        embedding: $embedding,
+        metadata: $metadata
+      })
+      RETURN n
+    `,
   },
 
   // Edge templates
@@ -360,6 +596,138 @@ export const GRAPH_SCHEMA = {
         avg_connections: toFloat(total_edges) / total_nodes,
         density: toFloat(total_edges) / (total_nodes * (total_nodes - 1))
       } as stats
+    `,
+
+    // Code-specific queries
+    findFunctionsByName: `
+      MATCH (f:Function)
+      WHERE f.name CONTAINS $name
+      RETURN f
+      ORDER BY f.importance DESC
+      LIMIT $limit
+    `,
+
+    findClassHierarchy: `
+      MATCH (c:Class {id: $class_id})-[:EXTENDS*0..5]-(related:Class)
+      RETURN related, length(()-[:EXTENDS*]-(related)) as depth
+      ORDER BY depth
+    `,
+
+    findFunctionCalls: `
+      MATCH (f:Function {id: $function_id})-[:CALLS]->(called:Function)
+      RETURN called, f
+      ORDER BY called.name
+    `,
+
+    findCallers: `
+      MATCH (caller:Function)-[:CALLS]->(f:Function {id: $function_id})
+      RETURN caller
+      ORDER BY caller.importance DESC
+    `,
+
+    findModuleDependencies: `
+      MATCH (m:Module {id: $module_id})-[:IMPORTS]->(dep:Module)
+      RETURN dep, m
+      ORDER BY dep.name
+    `,
+
+    findSimilarFunctions: `
+      MATCH (f:Function)
+      WHERE f.complexity >= $min_complexity 
+        AND f.complexity <= $max_complexity
+        AND f.language = $language
+        AND f.id <> $function_id
+      RETURN f
+      ORDER BY f.similarity DESC
+      LIMIT $limit
+    `,
+
+    getCodeMetrics: `
+      MATCH (f:Function)
+      WITH count(f) as total_functions,
+           avg(f.complexity) as avg_complexity,
+           max(f.complexity) as max_complexity,
+           sum(f.line_count) as total_lines
+      MATCH (c:Class)
+      WITH total_functions, avg_complexity, max_complexity, total_lines,
+           count(c) as total_classes
+      MATCH (m:Module)
+      RETURN {
+        total_functions: total_functions,
+        total_classes: total_classes,
+        total_modules: count(m),
+        avg_complexity: avg_complexity,
+        max_complexity: max_complexity,
+        total_lines: total_lines
+      } as metrics
+    `,
+
+    findCyclicDependencies: `
+      MATCH path = (m1:Module)-[:IMPORTS*2..10]->(m1)
+      WHERE length(path) > 2
+      RETURN nodes(path) as cycle, length(path) as cycle_length
+      ORDER BY cycle_length
+      LIMIT 20
+    `,
+
+    findUnusedFunctions: `
+      MATCH (f:Function)
+      WHERE NOT (f)<-[:CALLS]-()
+        AND f.visibility <> 'private'
+      RETURN f
+      ORDER BY f.created_at DESC
+    `,
+
+    findHighComplexityFunctions: `
+      MATCH (f:Function)
+      WHERE f.complexity > $threshold
+      RETURN f
+      ORDER BY f.complexity DESC
+      LIMIT $limit
+    `,
+
+    findCodeDuplication: `
+      MATCH (f1:Function), (f2:Function)
+      WHERE f1.signature = f2.signature
+        AND f1.id <> f2.id
+        AND f1.file_path <> f2.file_path
+      RETURN f1, f2
+      ORDER BY f1.line_count DESC
+    `,
+
+    getFileAnalysis: `
+      MATCH (n)
+      WHERE n.file_path = $file_path
+      OPTIONAL MATCH (n)-[r]->(related)
+      RETURN n, collect({relationship: r, target: related}) as relationships
+      ORDER BY n.line
+    `,
+
+    findInterfaceImplementations: `
+      MATCH (c:Class)-[:IMPLEMENTS]->(i:Interface {id: $interface_id})
+      RETURN c
+      ORDER BY c.name
+    `,
+
+    findOverriddenMethods: `
+      MATCH (child:Class)-[:EXTENDS]->(parent:Class)
+      MATCH (child)-[:DEFINES]->(m1:Function)
+      MATCH (parent)-[:DEFINES]->(m2:Function)
+      WHERE m1.name = m2.name
+        AND m1.signature = m2.signature
+      RETURN child, parent, m1, m2
+    `,
+
+    findTechnicalDebt: `
+      MATCH (f:Function)
+      WHERE f.complexity > $complexity_threshold
+         OR f.line_count > $line_threshold
+      WITH f, 
+           (CASE WHEN f.complexity > $complexity_threshold THEN 1 ELSE 0 END) +
+           (CASE WHEN f.line_count > $line_threshold THEN 1 ELSE 0 END) as debt_score
+      RETURN f, debt_score
+      ORDER BY debt_score DESC, f.complexity DESC
+      LIMIT $limit
     `,
   },
 };

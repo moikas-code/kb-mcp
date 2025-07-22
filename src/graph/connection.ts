@@ -104,10 +104,11 @@ export class FalkorDBConnection {
         pool_config: this.connectionPool.getStats(),
       });
 
-      // Initialize schema if needed
-      if (!this.isInitialized) {
-        await this.initializeSchema();
-      }
+      // Mark as initialized after successful connection
+      this.isInitialized = true;
+
+      // Initialize schema
+      await this.initializeSchema();
 
       return { success: true, data: undefined };
     } catch (error) {
@@ -140,7 +141,6 @@ export class FalkorDBConnection {
         }
       }
 
-      this.isInitialized = true;
       this.logger.info('Graph schema initialized');
     } catch (error) {
       this.logger.error('Failed to initialize schema', error);

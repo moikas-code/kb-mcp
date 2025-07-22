@@ -13,12 +13,13 @@
   "main": "dist/index.js",
   "type": "module",
   "bin": {
-    "kb": "dist/cli/index.js",
-    "kb-mcp": "dist/cli/index.js",
+    "kb": "scripts/kb-cli.js",
+    "kb-mcp": "scripts/kb-cli.js",
     "kb-mcp-wrapper": "scripts/kb-mcp-wrapper.sh"
   },
   "files": [
     "dist/",
+    "scripts/kb-cli.js",
     "scripts/kb-mcp-wrapper.sh",
     "README.md",
     "LICENSE",
@@ -34,6 +35,7 @@
     "test": "jest --coverage",
     "test:security": "jest --testPathPattern=security",
     "test:compliance": "jest --testPathPattern=compliance",
+    "test:integration": "jest --testPathPattern=integration",
     "lint": "eslint src --ext .ts",
     "type-check": "tsc --noEmit",
     "audit": "npm audit --production",
@@ -42,7 +44,17 @@
     "postversion": "git push && git push --tags",
     "release": "npm version patch && npm publish",
     "release:minor": "npm version minor && npm publish",
-    "release:major": "npm version major && npm publish"
+    "release:major": "npm version major && npm publish",
+    "benchmark": "node scripts/run-benchmarks.js",
+    "benchmark:quick": "node scripts/run-benchmarks.js --quick",
+    "benchmark:core": "node scripts/run-benchmarks.js core",
+    "benchmark:patterns": "node scripts/run-benchmarks.js patterns",
+    "benchmark:debt": "node scripts/run-benchmarks.js debt",
+    "benchmark:nlq": "node scripts/run-benchmarks.js nlq",
+    "benchmark:scalability": "node scripts/run-benchmarks.js scalability",
+    "benchmark:graph": "node scripts/run-benchmarks.js graph",
+    "benchmark:profile": "node scripts/run-benchmarks.js profile",
+    "benchmark:compare": "node scripts/run-benchmarks.js compare"
   },
   "keywords": [
     "mcp",
@@ -59,6 +71,7 @@
     "node": ">=18.0.0"
   },
   "dependencies": {
+    "@inquirer/prompts": "^7.7.0",
     "@modelcontextprotocol/sdk": "^1.0.0",
     "@types/bcrypt": "^5.0.0",
     "@types/cors": "^2.8.0",
@@ -75,7 +88,10 @@
     "@xenova/transformers": "^2.17.2",
     "bcrypt": "^6.0.0",
     "chalk": "^5.3.0",
+    "chokidar": "^3.6.0",
+    "cli-table3": "^0.6.5",
     "commander": "^12.0.0",
+    "compression": "^1.8.1",
     "cors": "^2.8.5",
     "crypto-js": "^4.2.0",
     "dockerode": "^4.0.0",
@@ -94,6 +110,7 @@
     "ml-distance": "^4.0.1",
     "node-cron": "^3.0.0",
     "ora": "^7.0.0",
+    "prom-client": "^15.1.3",
     "qrcode": "^1.5.4",
     "rate-limiter-flexible": "^3.0.0",
     "redis": "^4.6.0",
@@ -102,6 +119,10 @@
     "simple-git": "^3.28.0",
     "speakeasy": "^2.0.0",
     "tar": "^6.2.0",
+    "tree-sitter": "^0.21.1",
+    "tree-sitter-javascript": "^0.21.4",
+    "tree-sitter-python": "^0.21.0",
+    "tree-sitter-typescript": "^0.21.2",
     "uuid": "^9.0.0",
     "winston": "^3.11.0",
     "ws": "^8.14.0",
@@ -139,7 +160,21 @@
     "testMatch": [
       "**/__tests__/**/*.ts",
       "**/?(*.)+(spec|test).ts"
-    ]
+    ],
+    "moduleNameMapper": {
+      "^@core/(.*)$": "<rootDir>/src/core/$1",
+      "^@cli/(.*)$": "<rootDir>/src/cli/$1",
+      "^@mcp/(.*)$": "<rootDir>/src/mcp/$1",
+      "^@storage/(.*)$": "<rootDir>/src/storage/$1",
+      "^@monitoring/(.*)$": "<rootDir>/src/monitoring/$1",
+      "^@compliance/(.*)$": "<rootDir>/src/compliance/$1",
+      "^@types/(.*)$": "<rootDir>/src/types/$1",
+      "^@updater/(.*)$": "<rootDir>/src/updater/$1",
+      "^@graph/(.*)$": "<rootDir>/src/graph/$1",
+      "^@analysis/(.*)$": "<rootDir>/src/analysis/$1",
+      "^@auth/(.*)$": "<rootDir>/src/auth/$1",
+      "^@migration/(.*)$": "<rootDir>/src/migration/$1"
+    }
   },
   "lint-staged": {
     "*.ts": [

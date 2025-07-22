@@ -31,33 +31,20 @@
     "alwaysStrict": true,
     "noImplicitAny": true,
     "paths": {
-      "@core/*": ["./core/*"],
-      "@cli/*": ["./cli/*"],
-      "@mcp/*": ["./mcp/*"],
-      "@storage/*": ["./storage/*"],
-      "@monitoring/*": ["./monitoring/*"],
-      "@compliance/*": ["./compliance/*"],
-      "@types/*": ["./types/*"],
-      "@updater/*": ["./updater/*"],
-      "@graph/*": ["./graph/*"]
+      "@core/*": ["./src/core/*"],
+      "@cli/*": ["./src/cli/*"],
+      "@mcp/*": ["./src/mcp/*"],
+      "@storage/*": ["./src/storage/*"],
+      "@monitoring/*": ["./src/monitoring/*"],
+      "@compliance/*": ["./src/compliance/*"],
+      "@types/*": ["./src/types/*"],
+      "@updater/*": ["./src/updater/*"],
+      "@graph/*": ["./src/graph/*"],
+      "@analysis/*": ["./src/analysis/*"],
+      "@auth/*": ["./src/auth/*"],
+      "@migration/*": ["./src/migration/*"]
     }
   },
-  "include": [
-    "src/cli/index.ts",
-    "src/cli/commands/index.ts",
-    "src/cli/commands/db.ts",
-    "src/cli/commands/update.ts",
-    "src/core/backend-manager.ts",
-    "src/core/filesystem-backend.ts",
-    "src/core/graph-backend.ts",
-    "src/core/storage-interface.ts",
-    "src/core/docker-manager.ts",
-    "src/core/config.ts",
-    "src/graph/**/*.ts",
-    "src/mcp/**/*.ts",
-    "src/types/**/*.ts",
-    "src/updater/github-updater.ts",
-    "src/index.ts"
-  ],
+  "include": ["src/**/*.ts"],
   "exclude": ["node_modules", "dist", "**/*.test.ts", "**/*.spec.ts"]
 }

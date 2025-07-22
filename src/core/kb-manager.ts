@@ -2,18 +2,18 @@
  * Knowledge Base management utilities
  */
 
-import { promises as fs } from 'fs';
-import path from 'path';
-import { glob } from 'glob';
-import matter from 'gray-matter';
-import { KBCategory, KB_CATEGORIES } from './types.js';
-import { KBFile, KBDirectory, SearchResult } from '../types/types.js';
+import { promises as fs } from "fs";
+import path from "path";
+import { glob } from "glob";
+import matter from "gray-matter";
+import { KBCategory, KB_CATEGORIES } from "./types";
+import { KBFile, KBDirectory, SearchResult } from "../types/types";
 
 export class KBManager {
   private readonly kbPath: string;
 
   constructor(projectRoot: string) {
-    this.kbPath = path.join(projectRoot, 'kb');
+    this.kbPath = path.join(projectRoot, "kb");
   }
 
   /**
@@ -21,25 +21,28 @@ export class KBManager {
    */
   private validatePath(filePath: string): string {
     // Remove leading slashes and normalize the path
-    const cleanPath = filePath.replace(/^\/+/, '').trim();
-    
+    const cleanPath = filePath.replace(/^\/+/, "").trim();
+
     // Normalize the path to handle different separators and remove any ../ attempts
     const normalizedPath = path.normalize(cleanPath);
-    
+
     // Check for directory traversal attempts
-    if (normalizedPath.includes('..') || path.isAbsolute(normalizedPath)) {
-      throw new Error('Path traversal attempt detected');
+    if (normalizedPath.includes("..") || path.isAbsolute(normalizedPath)) {
+      throw new Error("Path traversal attempt detected");
     }
-    
+
     // Resolve the full path within the KB directory
     const fullPath = path.resolve(this.kbPath, normalizedPath);
-    
+
     // Double-check that the resolved path is within the KB directory
     const resolvedKbPath = path.resolve(this.kbPath);
-    if (!fullPath.startsWith(resolvedKbPath + path.sep) && fullPath !== resolvedKbPath) {
-      throw new Error('Path traversal attempt detected');
+    if (
+      !fullPath.startsWith(resolvedKbPath + path.sep) &&
+      fullPath !== resolvedKbPath
+    ) {
+      throw new Error("Path traversal attempt detected");
     }
-    
+
     return fullPath;
   }
 
@@ -61,25 +64,25 @@ export class KBManager {
    */
   async readFile(filePath: string): Promise<KBFile> {
     const fullPath = this.validatePath(filePath);
-    
+
     // Ensure it's a markdown file
-    if (!fullPath.endsWith('.md')) {
-      throw new Error('Only markdown files are allowed');
+    if (!fullPath.endsWith(".md")) {
+      throw new Error("Only markdown files are allowed");
     }
 
-    const content = await fs.readFile(fullPath, 'utf-8');
+    const content = await fs.readFile(fullPath, "utf-8");
     const parsed = matter(content);
-    
+
     const stats = await fs.stat(fullPath);
-    
+
     return {
       path: filePath,
       content: parsed.content,
       metadata: parsed.data,
-      category: parsed.data.category || 'general',
+      category: parsed.data.category || "general",
       size: stats.size,
       modified: stats.mtime,
-      created: stats.birthtime
+      created: stats.birthtime,
     };
   }
 
@@ -88,10 +91,10 @@ export class KBManager {
    */
   async writeFile(filePath: string, content: string): Promise<void> {
     const fullPath = this.validatePath(filePath);
-    
+
     // Ensure it's a markdown file
-    if (!fullPath.endsWith('.md')) {
-      throw new Error('Only markdown files are allowed');
+    if (!fullPath.endsWith(".md")) {
+      throw new Error("Only markdown files are allowed");
     }
 
     // Ensure the directory exists
@@ -101,12 +104,12 @@ export class KBManager {
     // Add metadata if not present
     const parsed = matter(content);
     if (!parsed.data.lastUpdated) {
-      parsed.data.lastUpdated = new Date().toISOString().split('T')[0];
+      parsed.data.lastUpdated = new Date().toISOString().split("T")[0];
     }
 
     // Write the file with frontmatter
     const output = matter.stringify(parsed.content, parsed.data);
-    await fs.writeFile(fullPath, output, 'utf-8');
+    await fs.writeFile(fullPath, output, "utf-8");
   }
 
   /**
@@ -114,10 +117,10 @@ export class KBManager {
    */
   async deleteFile(filePath: string): Promise<void> {
     const fullPath = this.validatePath(filePath);
-    
+
     // Ensure it's a markdown file
-    if (!fullPath.endsWith('.md')) {
-      throw new Error('Only markdown files are allowed');
+    if (!fullPath.endsWith(".md")) {
+      throw new Error("Only markdown files are allowed");
     }
 
     await fs.unlink(fullPath);
@@ -126,23 +129,23 @@ export class KBManager {
   /**
    * List files in a directory
    */
-  async listDirectory(dirPath: string = ''): Promise<KBDirectory> {
+  async listDirectory(dirPath: string = ""): Promise<KBDirectory> {
     const fullPath = this.validatePath(dirPath);
-    
+
     const stats = await fs.stat(fullPath);
     if (!stats.isDirectory()) {
-      throw new Error('Path is not a directory');
+      throw new Error("Path is not a directory");
     }
 
     const entries = await fs.readdir(fullPath, { withFileTypes: true });
-    
+
     const files: string[] = [];
     const subdirectories: KBDirectory[] = [];
 
     for (const entry of entries) {
-      if (entry.isFile() && entry.name.endsWith('.md')) {
+      if (entry.isFile() && entry.name.endsWith(".md")) {
         files.push(entry.name);
-      } else if (entry.isDirectory() && !entry.name.startsWith('.')) {
+      } else if (entry.isDirectory() && !entry.name.startsWith(".")) {
         const subDir = await this.listDirectory(path.join(dirPath, entry.name));
         subdirectories.push(subDir);
       }
@@ -152,7 +155,9 @@ export class KBManager {
       name: path.basename(fullPath),
       path: dirPath,
       files: files.sort(),
-      subdirectories: subdirectories.sort((a, b) => a.name.localeCompare(b.name))
+      subdirectories: subdirectories.sort((a, b) =>
+        a.name.localeCompare(b.name),
+      ),
     };
   }
 
@@ -161,31 +166,31 @@ export class KBManager {
    */
   async search(query: string, directory?: string): Promise<SearchResult[]> {
     const searchPath = directory ? this.validatePath(directory) : this.kbPath;
-    const pattern = path.join(searchPath, '**/*.md');
-    
+    const pattern = path.join(searchPath, "**/*.md");
+
     const files = await glob(pattern, {
-      ignore: ['**/node_modules/**', '**/.git/**']
+      ignore: ["**/node_modules/**", "**/.git/**"],
     });
 
     const results: SearchResult[] = [];
     const queryLower = query.toLowerCase();
 
     for (const file of files) {
-      const content = await fs.readFile(file, 'utf-8');
-      const lines = content.split('\n');
-      const matches: SearchResult['matches'] = [];
+      const content = await fs.readFile(file, "utf-8");
+      const lines = content.split("\n");
+      const matches: SearchResult["matches"] = [];
 
       lines.forEach((line, index) => {
         if (line.toLowerCase().includes(queryLower)) {
           // Get context (2 lines before and after)
           const contextStart = Math.max(0, index - 2);
           const contextEnd = Math.min(lines.length - 1, index + 2);
-          const context = lines.slice(contextStart, contextEnd + 1).join('\n');
+          const context = lines.slice(contextStart, contextEnd + 1).join("\n");
 
           matches.push({
             line: index + 1,
             content: line,
-            context
+            context,
           });
         }
       });
@@ -194,7 +199,7 @@ export class KBManager {
         const relativePath = path.relative(this.kbPath, file);
         results.push({
           file: relativePath,
-          matches
+          matches,
         });
       }
     }
@@ -213,9 +218,9 @@ export class KBManager {
    * Validate if a path belongs to a valid category
    */
   isValidCategory(filePath: string): boolean {
-    const parts = filePath.split('/');
+    const parts = filePath.split("/");
     if (parts.length === 0) return true;
-    
+
     const category = parts[0] as KBCategory;
     return KB_CATEGORIES.includes(category);
   }

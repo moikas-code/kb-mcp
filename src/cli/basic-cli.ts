@@ -1,816 +1,691 @@
 #!/usr/bin/env node
+
 /**
- * Basic KB CLI implementation
- * A minimal working CLI for knowledge base management
+ * Basic CLI for KB-MCP
+ * Provides core knowledge base operations through command line
  */
 
 import { Command } from 'commander';
 import chalk from 'chalk';
 import ora from 'ora';
-import { promises as fs } from 'fs';
+import Table from 'cli-table3';
+import fs from 'fs/promises';
 import path from 'path';
-import { glob } from 'glob';
-import { MultiTransportServer } from '../mcp/multi-transport-server.js';
-import { execSync } from 'child_process';
-import crypto from 'crypto';
+import { input, confirm } from '@inquirer/prompts';
+import { fileURLToPath } from 'url';
+import { BackendManager } from '../core/backend-manager.js';
+import { SearchOptions, StorageBackend } from '../core/storage-interface.js';
 
-const VERSION = '2.1.1';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
-interface FileInfo {
-  path: string;
-  size: number;
-  modified: string;
-  content?: string;
-}
-
-/**
- * Basic KB CLI - minimal implementation
- */
-class BasicKBCLI {
+class BasicCLI {
   private program: Command;
-  private kbPath: string;
+  private backendManager?: BackendManager;
 
   constructor() {
     this.program = new Command();
-    this.kbPath = path.join(process.cwd(), 'kb');
-    this.setupProgram();
     this.setupCommands();
   }
 
-  private setupProgram(): void {
-    this.program
-      .name('kb')
-      .description('Knowledge Base Management CLI')
-      .version(VERSION)
-      .option('-d, --debug', 'Enable debug logging');
+  private async getBackendManager(): Promise<BackendManager> {
+    if (!this.backendManager) {
+      this.backendManager = new BackendManager();
+      const initResult = await this.backendManager.initialize();
+      if (!initResult.success) {
+        console.error(chalk.red(`Failed to initialize backend: ${initResult.error?.message}`));
+        process.exit(1);
+      }
+    }
+    return this.backendManager;
+  }
+
+  private async getCurrentBackend(): Promise<StorageBackend> {
+    const manager = await this.getBackendManager();
+    const backend = manager.getBackend();
+    if (!backend) {
+      console.error(chalk.red('No backend available'));
+      process.exit(1);
+    }
+    return backend;
   }
 
   private setupCommands(): void {
-    // Initialize command
     this.program
-      .command('init')
-      .description('Initialize a new knowledge base')
-      .action(async () => {
-        await this.initCommand();
+      .name('kb')
+      .description('KB-MCP Basic CLI - Knowledge Base Management')
+      .version('2.1.4');
+
+    // Write command
+    this.program
+      .command('write <filepath> [content]')
+      .description('Write content to a knowledge base file')
+      .option('-i, --interactive', 'Enter content interactively')
+      .option('-m, --metadata <json>', 'Add metadata as JSON')
+      .option('--semantic', 'Enable semantic search indexing (graph backend only)')
+      .action(async (filepath: string, content?: string, options?: any) => {
+        await this.writeCommand(filepath, content, options);
       });
 
     // Read command
     this.program
-      .command('read <path>')
-      .alias('cat')
-      .description('Read a file from the knowledge base')
-      .action(async (filePath) => {
-        await this.readCommand(filePath);
-      });
-
-    // Write command
-    this.program
-      .command('write <path> <content>')
-      .alias('create')
-      .description('Write content to a file in the knowledge base')
-      .action(async (filePath, content) => {
-        await this.writeCommand(filePath, content);
+      .command('read <filepath>')
+      .description('Read content from a knowledge base file')
+      .option('-m, --metadata', 'Show metadata')
+      .option('-s, --stats', 'Show file statistics')
+      .action(async (filepath: string, options: any) => {
+        await this.readCommand(filepath, options);
       });
 
     // List command
     this.program
       .command('list [directory]')
-      .alias('ls')
       .description('List files in the knowledge base')
-      .action(async (directory) => {
-        await this.listCommand(directory || '');
+      .option('-c, --category <category>', 'Filter by category')
+      .option('-d, --detailed', 'Show detailed information')
+      .option('-t, --tree', 'Show as directory tree')
+      .action(async (directory?: string, options?: any) => {
+        await this.listCommand(directory, options);
+      });
+
+    // Delete command
+    this.program
+      .command('delete <filepath>')
+      .description('Delete a file from the knowledge base')
+      .option('-f, --force', 'Skip confirmation')
+      .action(async (filepath: string, options: any) => {
+        await this.deleteCommand(filepath, options);
       });
 
     // Search command
     this.program
       .command('search <query>')
-      .alias('find')
       .description('Search for content in the knowledge base')
-      .option('-l, --limit <number>', 'Maximum results', '10')
-      .action(async (query, options) => {
+      .option('-l, --limit <number>', 'Limit results', '10')
+      .option('-c, --category <category>', 'Search in specific category')
+      .option('-f, --fuzzy', 'Use fuzzy search')
+      .option('--semantic', 'Use semantic search (graph backend only)')
+      .action(async (query: string, options: any) => {
         await this.searchCommand(query, options);
-      });
-
-    // Delete command
-    this.program
-      .command('delete <path>')
-      .alias('rm')
-      .description('Delete a file from the knowledge base')
-      .action(async (filePath) => {
-        await this.deleteCommand(filePath);
       });
 
     // Status command
     this.program
       .command('status')
-      .description('Show knowledge base status')
+      .description('Show knowledge base implementation status')
       .action(async () => {
         await this.statusCommand();
       });
 
-    // Version command
+    // Issues command
     this.program
-      .command('version')
-      .description('Show version information')
-      .action(() => {
-        console.log(`KB-MCP CLI version ${VERSION}`);
-        console.log(`Node.js ${process.version}`);
-        console.log(`Platform: ${process.platform} ${process.arch}`);
+      .command('issues')
+      .description('List known issues')
+      .option('-s, --severity <level>', 'Filter by severity')
+      .action(async (options: any) => {
+        await this.issuesCommand(options);
       });
 
-    // Serve command (MCP server)
+    // Export command
     this.program
-      .command('serve')
-      .description('Start MCP server')
-      .option('--stdio', 'Use stdio transport only (default)')
-      .option('--port <port>', 'HTTP/WebSocket port (default: 3000)')
-      .option('--websocket', 'Enable WebSocket transport')
-      .option('--http', 'Enable HTTP transport')
-      .action(async (options) => {
-        await this.serveCommand(options);
+      .command('export <output>')
+      .description('Export knowledge base to JSON')
+      .action(async (output: string) => {
+        await this.exportCommand(output);
       });
 
-    // Database command
-    const db = this.program
-      .command('db')
-      .description('Manage local graph database');
-    
-    db.command('start')
-      .description('Start local FalkorDB instance')
+    // Import command
+    this.program
+      .command('import <input>')
+      .description('Import knowledge base from JSON')
+      .option('-f, --force', 'Overwrite existing files')
+      .action(async (input: string, options: any) => {
+        await this.importCommand(input, options);
+      });
+
+    // Backend command group
+    const backend = this.program
+      .command('backend')
+      .description('Backend management commands');
+
+    backend
+      .command('status')
+      .description('Show current backend status')
       .action(async () => {
-        await this.dbCommand('start');
+        await this.backendStatusCommand();
       });
-    
-    db.command('stop')
-      .description('Stop local FalkorDB instance')
+
+    backend
+      .command('switch <type>')
+      .description('Switch backend type (filesystem or graph)')
+      .action(async (type: string) => {
+        await this.backendSwitchCommand(type);
+      });
+
+    backend
+      .command('config')
+      .description('Show backend configuration')
       .action(async () => {
-        await this.dbCommand('stop');
-      });
-    
-    db.command('status')
-      .description('Check database status')
-      .action(async () => {
-        await this.dbCommand('status');
+        await this.backendConfigCommand();
       });
   }
 
-  private async initCommand(): Promise<void> {
-    const spinner = ora('Initializing knowledge base').start();
+  private async writeCommand(filepath: string, content?: string, options?: any): Promise<void> {
+    const spinner = ora('Writing file...').start();
     
     try {
-      // Create kb directory
-      await fs.mkdir(this.kbPath, { recursive: true });
+      const backend = await this.getCurrentBackend();
       
-      // Create basic structure
-      const dirs = ['docs', 'notes', 'references', 'guides', 'archive'];
-      for (const dir of dirs) {
-        await fs.mkdir(path.join(this.kbPath, dir), { recursive: true });
-      }
-      
-      // Create README
-      const readme = `# Knowledge Base
-
-Welcome to your knowledge base!
-
-## Structure
-- \`docs/\` - Documentation files
-- \`notes/\` - Meeting notes and quick thoughts  
-- \`references/\` - Reference materials and specs
-- \`guides/\` - How-to guides and tutorials
-- \`archive/\` - Archived content
-
-## Usage
-\`\`\`bash
-# Read a file
-kb read docs/example.md
-
-# Create a file
-kb write docs/new-doc.md "# New Document\\n\\nContent here"
-
-# List files
-kb list
-
-# Search content
-kb search "keyword"
-
-# Delete a file
-kb delete docs/old-file.md
-
-# Start MCP server
-kb serve
-
-# Manage database (for graph backend)
-kb db start    # Start local database
-kb db stop     # Stop database
-kb db status   # Check database status
-\`\`\`
-
-## CLI Commands
-- \`kb init\` - Initialize a new knowledge base
-- \`kb read <path>\` - Read a file
-- \`kb write <path> <content>\` - Write content to a file
-- \`kb list [directory]\` - List files
-- \`kb search <query>\` - Search for content
-- \`kb delete <path>\` - Delete a file
-- \`kb status\` - Show status information
-- \`kb serve\` - Start MCP server
-- \`kb db\` - Manage local graph database
-- \`kb version\` - Show version
-
----
-
-Generated by KB-MCP CLI v${VERSION}
-`;
-      
-      await fs.writeFile(path.join(this.kbPath, 'README.md'), readme);
-      
-      // Create example files
-      await fs.writeFile(
-        path.join(this.kbPath, 'docs', 'getting-started.md'),
-        `# Getting Started
-
-This is your first document in the knowledge base.
-
-## Quick Start
-
-1. Create new files with \`kb write\`
-2. Read existing files with \`kb read\`
-3. Search content with \`kb search\`
-4. List all files with \`kb list\`
-
-Happy documenting!
-`
-      );
-
-      await fs.writeFile(
-        path.join(this.kbPath, 'notes', 'example-note.md'),
-        `# Example Note
-
-Created: ${new Date().toISOString()}
-
-This is an example note to demonstrate the structure.
-
-## Meeting Notes
-- Topic: Knowledge base setup
-- Date: ${new Date().toDateString()}
-- Attendees: You
-
-## Action Items
-- [ ] Add more content
-- [ ] Organize files
-- [ ] Share with team
-`
-      );
-      
-      spinner.succeed('Knowledge base initialized successfully');
-      console.log(chalk.blue(`\nKB created at: ${chalk.cyan(this.kbPath)}`));
-      console.log(chalk.gray('Total files created:'), chalk.cyan('3'));
-      console.log(chalk.gray('Structure:'), 'docs/, notes/, references/, guides/, archive/');
-      
-    } catch (error) {
-      spinner.fail(`Initialization failed: ${error}`);
-    }
-  }
-
-  private async readCommand(filePath: string): Promise<void> {
-    const spinner = ora(`Reading ${filePath}`).start();
-    
-    try {
-      const fullPath = path.join(this.kbPath, filePath);
-      const content = await fs.readFile(fullPath, 'utf-8');
-      const stats = await fs.stat(fullPath);
-      
-      spinner.stop();
-      console.log(chalk.blue(`\n📄 ${filePath}`));
-      console.log(chalk.gray(`Size: ${stats.size} bytes | Modified: ${stats.mtime.toISOString()}`));
-      console.log(chalk.gray('─'.repeat(50)));
-      console.log(content);
-    } catch (error) {
-      spinner.fail(`Failed to read ${filePath}: File not found`);
-    }
-  }
-
-  private async writeCommand(filePath: string, content: string): Promise<void> {
-    const spinner = ora(`Writing ${filePath}`).start();
-    
-    try {
-      const fullPath = path.join(this.kbPath, filePath);
-      
-      // Create directory if it doesn't exist
-      await fs.mkdir(path.dirname(fullPath), { recursive: true });
-      
-      // Process content (decode \\n to actual newlines)
-      const processedContent = content.replace(/\\n/g, '\n');
-      
-      await fs.writeFile(fullPath, processedContent);
-      const stats = await fs.stat(fullPath);
-      
-      spinner.succeed(`File ${filePath} written successfully`);
-      console.log(chalk.gray(`Size: ${stats.size} bytes`));
-    } catch (error) {
-      spinner.fail(`Failed to write ${filePath}: ${error}`);
-    }
-  }
-
-  private async listCommand(directory: string): Promise<void> {
-    const spinner = ora(`Listing ${directory || 'root'}`).start();
-    
-    try {
-      const searchPath = path.join(this.kbPath, directory);
-      const pattern = path.join(searchPath, '**', '*').replace(/\\/g, '/');
-      const files = await glob(pattern, { nodir: true });
-      
-      const fileInfos: FileInfo[] = [];
-      let totalSize = 0;
-      
-      for (const file of files) {
-        const stats = await fs.stat(file);
-        const relativePath = path.relative(this.kbPath, file);
-        fileInfos.push({
-          path: relativePath,
-          size: stats.size,
-          modified: stats.mtime.toISOString()
-        });
-        totalSize += stats.size;
-      }
-      
-      // Sort by path
-      fileInfos.sort((a, b) => a.path.localeCompare(b.path));
-      
-      spinner.stop();
-      console.log(chalk.blue(`\n📁 Contents of ${directory || 'knowledge base'}:`));
-      console.log(chalk.gray('─'.repeat(60)));
-      
-      if (fileInfos.length === 0) {
-        console.log(chalk.gray('No files found'));
+      // Get content if not provided
+      if (!content && !options.interactive) {
+        spinner.fail('No content provided. Use -i flag for interactive mode.');
         return;
       }
+
+      if (options.interactive) {
+        content = await input({
+          message: 'Enter content (press Enter twice to finish):',
+        });
+      }
+
+      // Parse metadata if provided
+      let metadata: Record<string, any> | undefined;
+      if (options.metadata) {
+        try {
+          metadata = JSON.parse(options.metadata);
+        } catch (error) {
+          spinner.fail('Invalid metadata JSON');
+          return;
+        }
+      }
+
+      // Add semantic search flag to metadata if specified
+      if (options.semantic && backend.getBackendType() === 'graph') {
+        metadata = { ...metadata, enableSemanticSearch: true };
+      }
+
+      // Write file using backend
+      const result = await backend.writeFile(filepath, content || '', metadata);
       
-      fileInfos.forEach((file) => {
-        const sizeStr = formatBytes(file.size);
-        const modifiedStr = new Date(file.modified).toLocaleDateString();
-        console.log(`${chalk.cyan(file.path.padEnd(30))} ${sizeStr.padStart(8)} ${chalk.gray(modifiedStr)}`);
-      });
-      
-      console.log(chalk.gray('─'.repeat(60)));
-      console.log(chalk.gray(`Total: ${fileInfos.length} files, ${formatBytes(totalSize)}`));
+      if (result.success) {
+        spinner.succeed(chalk.green(`File written successfully: ${filepath}`));
+        if (options.semantic && backend.getBackendType() === 'graph') {
+          console.log(chalk.blue('✓ Semantic search indexing enabled'));
+        }
+      } else {
+        spinner.fail(`Failed to write file: ${result.error?.message}`);
+      }
     } catch (error) {
-      spinner.fail(`Failed to list directory: ${error}`);
+      spinner.fail(`Error: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  private async readCommand(filepath: string, options: any): Promise<void> {
+    const spinner = ora('Reading file...').start();
+    
+    try {
+      const backend = await this.getCurrentBackend();
+      
+      const result = await backend.readFile(filepath);
+      
+      if (result.success && result.data) {
+        spinner.succeed(chalk.green(`File: ${filepath}`));
+        
+        if (options.metadata && result.data.metadata) {
+          console.log(chalk.blue('\nMetadata:'));
+          console.log(JSON.stringify(result.data.metadata, null, 2));
+        }
+        
+        if (options.stats) {
+          console.log(chalk.blue('\nStatistics:'));
+          console.log(`Size: ${result.data.size} bytes`);
+          console.log(`Created: ${result.data.created}`);
+          console.log(`Modified: ${result.data.modified}`);
+          console.log(`Category: ${result.data.category}`);
+        }
+        
+        console.log(chalk.yellow('\nContent:'));
+        console.log(result.data.content);
+      } else {
+        spinner.fail(`Failed to read file: ${result.error?.message}`);
+      }
+    } catch (error) {
+      spinner.fail(`Error: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  private async listCommand(directory?: string, options?: any): Promise<void> {
+    const spinner = ora('Listing files...').start();
+    
+    try {
+      const backend = await this.getCurrentBackend();
+      
+      const result = await backend.listFiles(directory);
+      
+      if (result.success && result.data) {
+        spinner.succeed(chalk.green(`Found ${result.data.total_files} files`));
+        
+        if (options.tree) {
+          // Show as tree structure
+          console.log(chalk.blue('\nDirectory Tree:'));
+          this.printTree(result.data.files);
+        } else if (options.detailed) {
+          // Show detailed table
+          const table = new Table({
+            head: ['Path', 'Category', 'Size', 'Modified'],
+            style: { head: ['cyan'] }
+          });
+          
+          const files = options.category 
+            ? result.data.files.filter(f => f.category === options.category)
+            : result.data.files;
+          
+          files.forEach(file => {
+            table.push([
+              file.path,
+              file.category,
+              `${file.size} bytes`,
+              new Date(file.modified).toLocaleString()
+            ]);
+          });
+          
+          console.log(table.toString());
+        } else {
+          // Simple list
+          const files = options.category 
+            ? result.data.files.filter(f => f.category === options.category)
+            : result.data.files;
+          
+          files.forEach(file => {
+            console.log(`- ${file.path}`);
+          });
+        }
+        
+        // Show category summary
+        console.log(chalk.blue('\nCategory Summary:'));
+        Object.entries(result.data.categories).forEach(([category, files]) => {
+          if (files.length > 0) {
+            console.log(`${category}: ${files.length} files`);
+          }
+        });
+      } else {
+        spinner.fail(`Failed to list files: ${result.error?.message}`);
+      }
+    } catch (error) {
+      spinner.fail(`Error: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  private printTree(files: any[], prefix = ''): void {
+    // Group files by directory
+    const tree: Record<string, any> = {};
+    
+    files.forEach(file => {
+      const parts = file.path.split('/');
+      let current = tree;
+      
+      parts.forEach((part, index) => {
+        if (index === parts.length - 1) {
+          // It's a file
+          if (!current._files) current._files = [];
+          current._files.push(part);
+        } else {
+          // It's a directory
+          if (!current[part]) current[part] = {};
+          current = current[part];
+        }
+      });
+    });
+    
+    // Print the tree
+    this.printTreeNode(tree, prefix);
+  }
+
+  private printTreeNode(node: Record<string, any>, prefix: string): void {
+    const entries = Object.entries(node).filter(([key]) => key !== '_files');
+    const files = node._files || [];
+    
+    // Print directories
+    entries.forEach(([name, subNode], index) => {
+      const isLast = index === entries.length - 1 && files.length === 0;
+      console.log(`${prefix}${isLast ? '└── ' : '├── '}${chalk.blue(name + '/')}`);
+      this.printTreeNode(subNode, prefix + (isLast ? '    ' : '│   '));
+    });
+    
+    // Print files
+    files.forEach((file: string, index: number) => {
+      const isLast = index === files.length - 1;
+      console.log(`${prefix}${isLast ? '└── ' : '├── '}${file}`);
+    });
+  }
+
+  private async deleteCommand(filepath: string, options: any): Promise<void> {
+    try {
+      const backend = await this.getCurrentBackend();
+      
+      // Confirm deletion unless forced
+      if (!options.force) {
+        const confirmed = await confirm({
+          message: `Are you sure you want to delete ${filepath}?`,
+          default: false
+        });
+        
+        if (!confirmed) {
+          console.log(chalk.yellow('Deletion cancelled'));
+          return;
+        }
+      }
+      
+      const spinner = ora('Deleting file...').start();
+      const result = await backend.deleteFile(filepath);
+      
+      if (result.success) {
+        spinner.succeed(chalk.green(`File deleted successfully: ${filepath}`));
+      } else {
+        spinner.fail(`Failed to delete file: ${result.error?.message}`);
+      }
+    } catch (error) {
+      console.error(chalk.red(`Error: ${error instanceof Error ? error.message : String(error)}`));
     }
   }
 
   private async searchCommand(query: string, options: any): Promise<void> {
-    const spinner = ora(`Searching for "${query}"`).start();
+    const spinner = ora(`Searching for "${query}"...`).start();
     
     try {
-      const pattern = path.join(this.kbPath, '**', '*.md').replace(/\\/g, '/');
-      const files = await glob(pattern);
+      const backend = await this.getCurrentBackend();
       
-      const results: Array<{
-        path: string;
-        matches: Array<{ line: number; content: string; }>;
-        score: number;
-      }> = [];
+      const searchOptions: SearchOptions = {
+        limit: parseInt(options.limit) || 10,
+        category: options.category,
+        fuzzy: options.fuzzy,
+        includeContent: true
+      };
       
-      for (const file of files) {
-        try {
-          const content = await fs.readFile(file, 'utf-8');
-          const lines = content.split('\n');
-          const matches: Array<{ line: number; content: string; }> = [];
+      // Use appropriate search method based on backend and options
+      if (options.semantic && backend.getBackendType() === 'graph') {
+        // Graph backend with semantic search
+        const graphBackend = backend as any; // Type assertion for graph-specific methods
+        if (graphBackend.semanticSearch) {
+          const results = await graphBackend.semanticSearch(query, parseInt(options.limit) || 10);
+          if (!results.success) {
+            spinner.fail(`Search failed: ${results.error?.message}`);
+            return;
+          }
           
-          lines.forEach((line, index) => {
-            if (line.toLowerCase().includes(query.toLowerCase())) {
-              matches.push({
-                line: index + 1,
-                content: line.trim()
-              });
-            }
+          spinner.succeed(chalk.green(`Found ${results.data.length} results (semantic search)`));
+          
+          results.data.forEach((result: any, index: number) => {
+            console.log(chalk.blue(`\n${index + 1}. ${result.file.path} (similarity: ${result.similarity.toFixed(3)})`));
+            console.log(chalk.gray(result.snippet));
           });
+        } else {
+          spinner.fail('Semantic search not available on current backend');
+        }
+      } else {
+        // Use text search
+        const searchResult = await backend.searchContent(query, searchOptions);
+        if (!searchResult.success) {
+          spinner.fail(`Search failed: ${searchResult.error?.message}`);
+          return;
+        }
+        
+        spinner.succeed(chalk.green(`Found ${searchResult.data.length} results`));
+        
+        searchResult.data.forEach((result, index) => {
+          console.log(chalk.blue(`\n${index + 1}. ${result.file.path} (score: ${result.score})`));
+          console.log(chalk.gray(result.snippet));
           
-          if (matches.length > 0) {
-            const relativePath = path.relative(this.kbPath, file);
-            results.push({
-              path: relativePath,
-              matches,
-              score: matches.length
+          if (result.matches.length > 0) {
+            console.log(chalk.yellow('Matches:'));
+            result.matches.slice(0, 3).forEach(match => {
+              console.log(`  Line ${match.line}: ${match.context}`);
             });
           }
-        } catch {
-          // Skip files that can't be read
-        }
-      }
-      
-      // Sort by score (number of matches)
-      results.sort((a, b) => b.score - a.score);
-      
-      // Limit results
-      const limit = parseInt(options.limit) || 10;
-      const limitedResults = results.slice(0, limit);
-      
-      spinner.stop();
-      console.log(chalk.blue(`\n🔍 Search results for "${query}":`));
-      console.log(chalk.gray('─'.repeat(60)));
-      
-      if (limitedResults.length === 0) {
-        console.log(chalk.gray('No matches found'));
-        return;
-      }
-      
-      limitedResults.forEach((result, index) => {
-        console.log(`\n${index + 1}. ${chalk.yellow(result.path)} (${result.score} matches)`);
-        result.matches.forEach((match) => {
-          const highlightedContent = match.content.replace(
-            new RegExp(query, 'gi'),
-            chalk.bgYellow.black(query)
-          );
-          console.log(chalk.gray(`   Line ${match.line}:`), highlightedContent);
         });
-      });
-      
-      console.log(chalk.gray(`\nShowing ${limitedResults.length} of ${results.length} results`));
+      }
     } catch (error) {
-      spinner.fail(`Search failed: ${error}`);
-    }
-  }
-
-  private async deleteCommand(filePath: string): Promise<void> {
-    const spinner = ora(`Deleting ${filePath}`).start();
-    
-    try {
-      const fullPath = path.join(this.kbPath, filePath);
-      await fs.unlink(fullPath);
-      spinner.succeed(`File ${filePath} deleted successfully`);
-    } catch (error) {
-      spinner.fail(`Failed to delete ${filePath}: File not found`);
+      spinner.fail(`Error: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
   private async statusCommand(): Promise<void> {
+    const spinner = ora('Fetching status...').start();
+    
     try {
-      const pattern = path.join(this.kbPath, '**', '*').replace(/\\/g, '/');
-      const allFiles = await glob(pattern, { nodir: true });
-      const markdownFiles = await glob(path.join(this.kbPath, '**', '*.md').replace(/\\/g, '/'));
+      const backend = await this.getCurrentBackend();
       
-      let totalSize = 0;
-      let oldestFile = '';
-      let newestFile = '';
-      let oldestTime = Date.now();
-      let newestTime = 0;
+      const result = await backend.getStatus();
       
-      for (const file of allFiles) {
-        const stats = await fs.stat(file);
-        totalSize += stats.size;
+      if (result.success && result.data) {
+        spinner.succeed('Status retrieved successfully');
         
-        if (stats.mtime.getTime() < oldestTime) {
-          oldestTime = stats.mtime.getTime();
-          oldestFile = path.relative(this.kbPath, file);
-        }
+        console.log(chalk.blue('\nImplementation Status:'));
+        console.log(`Overall Completion: ${chalk.green(result.data.overall_completion + '%')}`);
+        console.log(`Critical Issues: ${chalk.red(result.data.critical_issues)}`);
+        console.log(`Last Updated: ${result.data.last_updated}`);
         
-        if (stats.mtime.getTime() > newestTime) {
-          newestTime = stats.mtime.getTime();
-          newestFile = path.relative(this.kbPath, file);
-        }
-      }
-      
-      console.log(chalk.bold('\n📊 Knowledge Base Status'));
-      console.log(chalk.gray('─'.repeat(40)));
-      console.log('Location:', chalk.cyan(this.kbPath));
-      console.log('Total files:', chalk.cyan(allFiles.length.toString()));
-      console.log('Markdown files:', chalk.cyan(markdownFiles.length.toString()));
-      console.log('Total size:', chalk.cyan(formatBytes(totalSize)));
-      
-      if (oldestFile) {
-        console.log('Oldest file:', chalk.gray(oldestFile), chalk.gray(`(${new Date(oldestTime).toLocaleDateString()})`));
-      }
-      
-      if (newestFile) {
-        console.log('Newest file:', chalk.yellow(newestFile), chalk.gray(`(${new Date(newestTime).toLocaleDateString()})`));
-      }
-      
-      // Show directory breakdown
-      const dirStats: Record<string, number> = {};
-      allFiles.forEach(file => {
-        const relativePath = path.relative(this.kbPath, file);
-        const dir = path.dirname(relativePath);
-        const topDir = dir === '.' ? 'root' : dir.split(path.sep)[0];
-        dirStats[topDir] = (dirStats[topDir] || 0) + 1;
-      });
-      
-      console.log('\nFiles by directory:');
-      Object.entries(dirStats)
-        .sort(([,a], [,b]) => b - a)
-        .forEach(([dir, count]) => {
-          console.log(`  ${dir}:`, chalk.cyan(count.toString()));
+        const table = new Table({
+          head: ['Phase', 'Status', 'Completion', 'Notes'],
+          style: { head: ['cyan'] }
         });
-      
-    } catch (error) {
-      console.error(chalk.red('Failed to get status:'), error);
-    }
-  }
-
-  private async dbCommand(action: string): Promise<void> {
-    switch (action) {
-      case 'start':
-        await this.startDatabase();
-        break;
-      case 'stop':
-        await this.stopDatabase();
-        break;
-      case 'status':
-        await this.showDatabaseStatus();
-        break;
-      default:
-        console.error(chalk.red(`Unknown database action: ${action}`));
-    }
-  }
-
-  private async startDatabase(): Promise<void> {
-    const spinner = ora('Starting local database...').start();
-    
-    try {
-      // Check if Docker is available
-      try {
-        execSync('docker --version', { stdio: 'ignore' });
-      } catch {
-        spinner.fail('Docker is not installed or not running');
-        console.log(chalk.yellow('\nPlease install Docker: https://docs.docker.com/get-docker/'));
-        return;
-      }
-
-      // Generate project ID based on current directory
-      const projectId = crypto.createHash('sha256').update(process.cwd()).digest('hex').substring(0, 8);
-      const projectName = `kb_${projectId}`;
-      
-      // Create docker network if it doesn't exist
-      try {
-        execSync(`docker network create ${projectName}_network`, { stdio: 'ignore' });
-      } catch {
-        // Network might already exist
-      }
-      
-      // Start FalkorDB container
-      const falkorPort = 6380 + (parseInt(projectId.substring(0, 4), 16) % 1000);
-      try {
-        execSync(`docker run -d --name ${projectName}_falkordb \
-          --network ${projectName}_network \
-          -p ${falkorPort}:6379 \
-          -e FALKORDB_PASSWORD=dev_${projectId} \
-          falkordb/falkordb:latest`, { stdio: 'ignore' });
-      } catch (error) {
-        // Container might already exist, try to start it
-        try {
-          execSync(`docker start ${projectName}_falkordb`, { stdio: 'ignore' });
-        } catch {
-          throw new Error('Failed to start FalkorDB container');
-        }
-      }
-      
-      // Start Redis container
-      const redisPort = 7379 + (parseInt(projectId.substring(0, 4), 16) % 1000);
-      try {
-        execSync(`docker run -d --name ${projectName}_redis \
-          --network ${projectName}_network \
-          -p ${redisPort}:6379 \
-          -e REDIS_PASSWORD=dev_${projectId} \
-          redis:7-alpine redis-server --requirepass dev_${projectId}`, { stdio: 'ignore' });
-      } catch (error) {
-        // Container might already exist, try to start it
-        try {
-          execSync(`docker start ${projectName}_redis`, { stdio: 'ignore' });
-        } catch {
-          throw new Error('Failed to start Redis container');
-        }
-      }
-      
-      // Wait for containers to be ready
-      spinner.text = 'Waiting for databases to be ready...';
-      await new Promise(resolve => setTimeout(resolve, 3000));
-      
-      spinner.succeed('Database started successfully');
-      
-      // Display connection info
-      console.log('\n' + chalk.bold('Connection Information:'));
-      console.log(chalk.gray('─'.repeat(40)));
-      console.log('FalkorDB:');
-      console.log('  Host:', chalk.cyan('localhost'));
-      console.log('  Port:', chalk.cyan(falkorPort.toString()));
-      console.log('  Password:', chalk.cyan(`dev_${projectId}`));
-      console.log('\nRedis:');
-      console.log('  Host:', chalk.cyan('localhost'));
-      console.log('  Port:', chalk.cyan(redisPort.toString()));
-      console.log('  Password:', chalk.cyan(`dev_${projectId}`));
-      
-      // Update config file if it exists
-      try {
-        const configPath = '.kbconfig.yaml';
-        if (await fs.stat(configPath).catch(() => null)) {
-          let configContent = await fs.readFile(configPath, 'utf-8');
-          
-          // Update graph backend configuration
-          configContent = configContent.replace(/graph:\s*\n\s*connection:\s*\n\s*host:.*\n\s*port:.*/, 
-            `graph:\n    connection:\n      host: localhost\n      port: ${falkorPort}`);
-          
-          await fs.writeFile(configPath, configContent);
-          console.log('\n' + chalk.gray('Configuration updated in .kbconfig.yaml'));
-        }
-      } catch {
-        // Ignore config update errors
-      }
-      
-    } catch (error) {
-      spinner.fail(`Failed to start database: ${error}`);
-      process.exit(1);
-    }
-  }
-
-  private async stopDatabase(): Promise<void> {
-    const spinner = ora('Stopping database...').start();
-    
-    try {
-      const projectId = crypto.createHash('sha256').update(process.cwd()).digest('hex').substring(0, 8);
-      const projectName = `kb_${projectId}`;
-      
-      // Stop containers
-      try {
-        execSync(`docker stop ${projectName}_falkordb ${projectName}_redis`, { stdio: 'ignore' });
-        spinner.succeed('Database stopped');
-      } catch {
-        spinner.fail('No running database found for this project');
-      }
-    } catch (error) {
-      spinner.fail(`Failed to stop database: ${error}`);
-    }
-  }
-
-  private async showDatabaseStatus(): Promise<void> {
-    try {
-      const projectId = crypto.createHash('sha256').update(process.cwd()).digest('hex').substring(0, 8);
-      const projectName = `kb_${projectId}`;
-      
-      console.log(chalk.bold('\nDatabase Status'));
-      console.log(chalk.gray('─'.repeat(40)));
-      console.log('Project:', chalk.cyan(path.basename(process.cwd())));
-      console.log('Project ID:', chalk.cyan(projectId));
-      
-      // Check container status
-      let falkordbRunning = false;
-      let redisRunning = false;
-      
-      try {
-        const falkorStatus = execSync(`docker inspect -f '{{.State.Running}}' ${projectName}_falkordb`, { encoding: 'utf-8' }).trim();
-        falkordbRunning = falkorStatus === 'true';
-      } catch {
-        // Container doesn't exist
-      }
-      
-      try {
-        const redisStatus = execSync(`docker inspect -f '{{.State.Running}}' ${projectName}_redis`, { encoding: 'utf-8' }).trim();
-        redisRunning = redisStatus === 'true';
-      } catch {
-        // Container doesn't exist
-      }
-      
-      const status = falkordbRunning && redisRunning ? 'Running' : 
-                    falkordbRunning || redisRunning ? 'Partial' : 'Stopped';
-      
-      console.log('Status:', status === 'Running' ? chalk.green(status) : 
-                          status === 'Partial' ? chalk.yellow(status) : chalk.red(status));
-      
-      if (falkordbRunning || redisRunning) {
-        console.log('\nContainers:');
-        console.log('  FalkorDB:', falkordbRunning ? chalk.green('✓') : chalk.red('✗'));
-        console.log('  Redis:', redisRunning ? chalk.green('✓') : chalk.red('✗'));
         
-        const falkorPort = 6380 + (parseInt(projectId.substring(0, 4), 16) % 1000);
-        const redisPort = 7379 + (parseInt(projectId.substring(0, 4), 16) % 1000);
+        result.data.phases.forEach(phase => {
+          const status = phase.status === 'completed' ? chalk.green(phase.status) :
+                        phase.status === 'in_progress' ? chalk.yellow(phase.status) :
+                        chalk.red(phase.status);
+          
+          table.push([
+            phase.name,
+            status,
+            `${phase.completion}%`,
+            phase.notes || ''
+          ]);
+        });
         
-        console.log('\nPorts:');
-        console.log('  FalkorDB:', chalk.cyan(`localhost:${falkorPort}`));
-        console.log('  Redis:', chalk.cyan(`localhost:${redisPort}`));
-      }
-      
-    } catch (error) {
-      console.error(chalk.red('Failed to get status:'), error);
-    }
-  }
-
-  private async serveCommand(options: any): Promise<void> {
-    console.log(chalk.blue('Starting MCP server...'));
-    
-    try {
-      // Determine transport type
-      let transport: 'stdio' | 'http' | 'websocket' = 'stdio';
-      if (options.websocket) {
-        transport = 'websocket';
-      } else if (options.http || options.port) {
-        transport = 'http';
-      }
-      
-      // Build server options based on transport
-      const serverOptions: any = {
-        rootPath: process.cwd()
-      };
-      
-      if (transport === 'stdio') {
-        serverOptions.stdio = true;
+        console.log(table.toString());
       } else {
-        const port = parseInt(options.port) || 3000;
+        spinner.fail(`Failed to get status: ${result.error?.message}`);
+      }
+    } catch (error) {
+      spinner.fail(`Error: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  private async issuesCommand(options: any): Promise<void> {
+    const spinner = ora('Fetching issues...').start();
+    
+    try {
+      const backend = await this.getCurrentBackend();
+      
+      const result = await backend.getIssues();
+      
+      if (result.success && result.data) {
+        const issues = options.severity 
+          ? result.data.filter(i => i.severity === options.severity)
+          : result.data;
         
-        if (transport === 'websocket') {
-          serverOptions.websocket = {
-            port,
-            host: '0.0.0.0',
-            path: '/mcp'
-          };
-        } else {
-          serverOptions.http = {
-            port,
-            host: '0.0.0.0'
-          };
+        spinner.succeed(`Found ${issues.length} issues`);
+        
+        if (issues.length === 0) {
+          console.log(chalk.green('No issues found!'));
+          return;
+        }
+        
+        const table = new Table({
+          head: ['ID', 'Title', 'Severity', 'Category', 'Status'],
+          style: { head: ['cyan'] }
+        });
+        
+        issues.forEach(issue => {
+          const severity = issue.severity === 'critical' ? chalk.red(issue.severity) :
+                          issue.severity === 'high' ? chalk.yellow(issue.severity) :
+                          chalk.blue(issue.severity);
+          
+          table.push([
+            issue.id,
+            issue.title.substring(0, 40) + (issue.title.length > 40 ? '...' : ''),
+            severity,
+            issue.category,
+            issue.status
+          ]);
+        });
+        
+        console.log(table.toString());
+      } else {
+        spinner.fail(`Failed to get issues: ${result.error?.message}`);
+      }
+    } catch (error) {
+      spinner.fail(`Error: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  private async exportCommand(output: string): Promise<void> {
+    const spinner = ora('Exporting knowledge base...').start();
+    
+    try {
+      const backend = await this.getCurrentBackend();
+      
+      const result = await backend.exportData();
+      
+      if (result.success && result.data) {
+        await fs.writeFile(output, JSON.stringify(result.data, null, 2));
+        spinner.succeed(chalk.green(`Exported to ${output}`));
+        console.log(`Total files: ${result.data.files.length}`);
+        console.log(`Export size: ${JSON.stringify(result.data).length} bytes`);
+      } else {
+        spinner.fail(`Failed to export: ${result.error?.message}`);
+      }
+    } catch (error) {
+      spinner.fail(`Error: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  private async importCommand(input: string, options: any): Promise<void> {
+    const spinner = ora('Importing knowledge base...').start();
+    
+    try {
+      const backend = await this.getCurrentBackend();
+      
+      const data = JSON.parse(await fs.readFile(input, 'utf-8'));
+      
+      if (!options.force) {
+        const confirmed = await confirm({
+          message: `Import ${data.files.length} files? This may overwrite existing files.`,
+          default: false
+        });
+        
+        if (!confirmed) {
+          spinner.fail('Import cancelled');
+          return;
         }
       }
       
-      const server = new MultiTransportServer(serverOptions, process.cwd());
+      const result = await backend.importData(data);
       
-      // Initialize server
-      const initResult = await server.initialize();
-      if (!initResult.success) {
-        throw new Error(initResult.error?.message || 'Failed to initialize server');
+      if (result.success) {
+        spinner.succeed(chalk.green(`Imported ${data.files.length} files successfully`));
+      } else {
+        spinner.fail(`Failed to import: ${result.error?.message}`);
+      }
+    } catch (error) {
+      spinner.fail(`Error: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  private async backendStatusCommand(): Promise<void> {
+    const spinner = ora('Checking backend status...').start();
+    
+    try {
+      const backend = await this.getCurrentBackend();
+      const manager = await this.getBackendManager();
+      const config = manager.getCurrentConfig();
+      
+      const healthResult = await backend.healthCheck();
+      
+      spinner.succeed('Backend status retrieved');
+      
+      console.log(chalk.blue('\nBackend Information:'));
+      console.log(`Type: ${chalk.green(backend.getBackendType())}`);
+      console.log(`Status: ${healthResult.success && healthResult.data.status === 'healthy' ? chalk.green('Healthy') : chalk.red('Unhealthy')}`);
+      
+      if (healthResult.success && healthResult.data.details) {
+        console.log(chalk.blue('\nDetails:'));
+        Object.entries(healthResult.data.details).forEach(([key, value]) => {
+          console.log(`${key}: ${JSON.stringify(value)}`);
+        });
       }
       
-      // Start server
-      const startResult = await server.start();
-      if (!startResult.success) {
-        throw new Error(startResult.error?.message || 'Failed to start server');
-      }
+      console.log(chalk.blue('\nConfiguration:'));
+      console.log(JSON.stringify(config, null, 2));
+    } catch (error) {
+      spinner.fail(`Error: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  private async backendSwitchCommand(type: string): Promise<void> {
+    if (type !== 'filesystem' && type !== 'graph') {
+      console.error(chalk.red('Invalid backend type. Use "filesystem" or "graph"'));
+      return;
+    }
+    
+    const spinner = ora(`Switching to ${type} backend...`).start();
+    
+    try {
+      const manager = await this.getBackendManager();
+      const result = await manager.switchBackend(type as 'filesystem' | 'graph');
       
-      console.log(chalk.green('✓ MCP server started successfully'));
-      
-      if (transport === 'stdio') {
-        console.log(chalk.gray('\nServer running in stdio mode'));
-        console.log(chalk.gray('Add to Claude Desktop configuration:'));
-        console.log(chalk.cyan(JSON.stringify({
-          mcpServers: {
-            'kb-mcp': {
-              command: 'kb',
-              args: ['serve']
+      if (result.success) {
+        spinner.succeed(chalk.green(`Successfully switched to ${type} backend`));
+        
+        // Show new backend status
+        const backend = manager.getBackend();
+        if (backend) {
+          const healthResult = await backend.healthCheck();
+          
+          if (healthResult.success) {
+            console.log(chalk.blue('\nBackend Status:'));
+            console.log(`Health: ${healthResult.data.status}`);
+            if (healthResult.data.details) {
+              Object.entries(healthResult.data.details).forEach(([key, value]) => {
+                console.log(`${key}: ${JSON.stringify(value)}`);
+              });
             }
           }
-        }, null, 2)));
-      } else if (transport === 'websocket') {
-        console.log(chalk.gray(`\nWebSocket endpoint: ws://localhost:${options.port || 3000}/mcp`));
+        }
       } else {
-        console.log(chalk.gray(`\nHTTP endpoint: http://localhost:${options.port || 3000}/`));
+        spinner.fail(`Failed to switch backend: ${result.error?.message}`);
       }
-      
-      console.log(chalk.gray('\nPress Ctrl+C to stop the server'));
-      
-      // Keep server running
-      process.on('SIGINT', async () => {
-        console.log('\n' + chalk.yellow('Shutting down server...'));
-        await server.stop();
-        process.exit(0);
-      });
-      
-      // Keep the process alive
-      await new Promise(() => {});
-      
     } catch (error) {
-      console.error(chalk.red('Failed to start server:'), error);
-      process.exit(1);
+      spinner.fail(`Error: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  private async backendConfigCommand(): Promise<void> {
+    try {
+      const backend = await this.getCurrentBackend();
+      const config = backend.getConfiguration();
+      
+      console.log(chalk.blue('Current Backend Configuration:'));
+      console.log(JSON.stringify(config, null, 2));
+    } catch (error) {
+      console.error(chalk.red(`Error: ${error instanceof Error ? error.message : String(error)}`));
     }
   }
 
   async run(): Promise<void> {
-    await this.program.parseAsync(process.argv);
+    try {
+      await this.program.parseAsync(process.argv);
+    } catch (error) {
+      console.error(chalk.red(`Error: ${error instanceof Error ? error.message : String(error)}`));
+      process.exit(1);
+    }
   }
 }
 
-/**
- * Format bytes to human readable string
- */
-function formatBytes(bytes: number): string {
-  if (bytes === 0) return '0 B';
-  const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
-}
-
-// Handle uncaught errors
-process.on('unhandledRejection', (reason) => {
-  console.error(chalk.red('Unhandled Rejection:'), reason);
-  process.exit(1);
-});
-
-process.on('uncaughtException', (error) => {
-  console.error(chalk.red('Uncaught Exception:'), error);
-  process.exit(1);
-});
-
-// Run the CLI
-const cli = new BasicKBCLI();
-cli.run().catch((error) => {
-  console.error(chalk.red('CLI Error:'), error);
+// Create and run the CLI
+const cli = new BasicCLI();
+cli.run().catch(error => {
+  console.error(chalk.red(`Fatal error: ${error instanceof Error ? error.message : String(error)}`));
   process.exit(1);
 });

@@ -172,9 +172,10 @@ export class GraphBackend implements StorageBackend {
 
   async readFile(filePath: string): Promise<Result<KBFile>> {
     try {
+      const escapedPath = this.escapeString(filePath);
       const result = await this.memory.graph.query(
-        'MATCH (d:Document {path: $path}) RETURN d',
-        { path: filePath }
+        `MATCH (d:Document {path: "${escapedPath}"}) RETURN d`,
+        {}
       );
 
       if (!result.success || !result.data || result.data.length === 0) {
@@ -190,16 +191,17 @@ export class GraphBackend implements StorageBackend {
         };
       }
 
-      const doc = result.data[0].d;
+      const docNode = result.data[0].d;
+      const doc = docNode.properties;
       
       return {
         success: true,
         data: {
           path: doc.path,
           content: doc.content,
-          metadata: doc.metadata || {},
+          metadata: doc.metadata ? JSON.parse(doc.metadata) : {},
           category: doc.category || this.categorizeFile(filePath),
-          size: doc.content?.length || 0,
+          size: doc.size || doc.content?.length || 0,
           modified: doc.modified || new Date().toISOString(),
           created: doc.created || new Date().toISOString()
         }
@@ -218,39 +220,74 @@ export class GraphBackend implements StorageBackend {
     }
   }
 
+  // Helper function to escape string values for Cypher queries
+  private escapeString(value: string): string {
+    return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/'/g, "\\'");
+  }
+
   async writeFile(filePath: string, content: string, metadata?: Record<string, any>): Promise<Result<void>> {
     try {
       const category = this.categorizeFile(filePath);
       const now = new Date().toISOString();
+      
+      // Escape values for safe query construction
+      const escapedPath = this.escapeString(filePath);
+      const escapedContent = this.escapeString(content);
+      const escapedCategory = this.escapeString(category);
+      const escapedMetadata = this.escapeString(JSON.stringify(metadata || {}));
+      const escapedNow = this.escapeString(now);
 
-      // Use graph query to create or update document
-      const result = await this.memory.graph.query(`
-        MERGE (d:Document {path: $path})
-        SET d.content = $content,
-            d.metadata = $metadata,
-            d.category = $category,
-            d.modified = $modified,
-            d.size = $size
-        ON CREATE SET d.created = $created
-        MERGE (c:Category {name: $category})
-        MERGE (d)-[:BELONGS_TO]->(c)
-        RETURN d
-      `, {
-        path: filePath,
-        content,
-        metadata: JSON.stringify(metadata || {}),
-        category,
-        modified: now,
-        created: now,
-        size: content.length
-      });
+      // First check if document exists (parameter-free)
+      const checkResult = await this.memory.graph.query(
+        `MATCH (d:Document {path: "${escapedPath}"}) RETURN d`,
+        {}
+      );
+
+      let result;
+      if (checkResult.success && checkResult.data && checkResult.data.length > 0) {
+        // Update existing document
+        result = await this.memory.graph.query(`
+          MATCH (d:Document {path: "${escapedPath}"})
+          SET d.content = "${escapedContent}",
+              d.metadata = "${escapedMetadata}",
+              d.category = "${escapedCategory}",
+              d.modified = "${escapedNow}",
+              d.size = ${content.length}
+          WITH d
+          MERGE (c:Category {name: "${escapedCategory}"})
+          MERGE (d)-[:BELONGS_TO]->(c)
+          RETURN d
+        `, {});
+      } else {
+        // Create new document
+        result = await this.memory.graph.query(`
+          CREATE (d:Document {
+            path: "${escapedPath}",
+            content: "${escapedContent}",
+            metadata: "${escapedMetadata}",
+            category: "${escapedCategory}",
+            modified: "${escapedNow}",
+            created: "${escapedNow}",
+            size: ${content.length},
+            id: "${escapedPath}"
+          })
+          WITH d
+          MERGE (c:Category {name: "${escapedCategory}"})
+          MERGE (d)-[:BELONGS_TO]->(c)
+          RETURN d
+        `, {});
+      }
 
       if (!result.success) {
+        const errorMessage = result.error && typeof result.error === 'object' && 'message' in result.error 
+          ? (result.error as any).message
+          : result.error?.toString() || 'Unknown error';
+        
         return {
           success: false,
           error: {
             name: 'GraphWriteError',
-            message: `Failed to write file ${filePath}: ${result.error}`,
+            message: `Failed to write file ${filePath}: ${errorMessage}`,
             code: 'GRAPH_WRITE_FAILED',
             statusCode: 500,
             isOperational: true
@@ -260,11 +297,18 @@ export class GraphBackend implements StorageBackend {
 
       // Store in vector memory for semantic search if enabled
       if (this.config.graph?.enable_semantic_search) {
-        await this.memory.vector.store(content, {
-          category,
-          path: filePath,
-          modified: now
-        });
+        try {
+          // Generate embedding and store for semantic search
+          await this.memory.vector.storeEmbedding(filePath, [], {
+            content,
+            category,
+            path: filePath,
+            modified: now
+          });
+        } catch (error) {
+          console.warn('Failed to store vector embedding:', error);
+          // Don't fail the write operation if vector storage fails
+        }
       }
 
       return { success: true, data: undefined };
@@ -284,17 +328,22 @@ export class GraphBackend implements StorageBackend {
 
   async deleteFile(filePath: string): Promise<Result<void>> {
     try {
+      const escapedPath = this.escapeString(filePath);
       const result = await this.memory.graph.query(
-        'MATCH (d:Document {path: $path}) DETACH DELETE d',
-        { path: filePath }
+        `MATCH (d:Document {path: "${escapedPath}"}) DETACH DELETE d`,
+        {}
       );
 
       if (!result.success) {
+        const errorMessage = result.error && typeof result.error === 'object' && 'message' in result.error 
+          ? (result.error as any).message
+          : result.error?.toString() || 'Unknown error';
+        
         return {
           success: false,
           error: {
             name: 'GraphDeleteError',
-            message: `Failed to delete file ${filePath}: ${result.error}`,
+            message: `Failed to delete file ${filePath}: ${errorMessage}`,
             code: 'GRAPH_DELETE_FAILED',
             statusCode: 500,
             isOperational: true
@@ -338,11 +387,15 @@ export class GraphBackend implements StorageBackend {
       const result = await this.memory.graph.query(query, params);
 
       if (!result.success) {
+        const errorMessage = result.error && typeof result.error === 'object' && 'message' in result.error 
+          ? (result.error as any).message
+          : result.error?.toString() || 'Unknown error';
+        
         return {
           success: false,
           error: {
             name: 'GraphListError',
-            message: `Failed to list files: ${result.error}`,
+            message: `Failed to list files: ${errorMessage}`,
             code: 'GRAPH_LIST_FAILED',
             statusCode: 500,
             isOperational: true
@@ -395,6 +448,70 @@ export class GraphBackend implements StorageBackend {
           name: 'GraphListError',
           message: `Failed to list files: ${error instanceof Error ? error.message : 'Unknown error'}`,
           code: 'GRAPH_LIST_FAILED',
+          statusCode: 500,
+          isOperational: true
+        }
+      };
+    }
+  }
+
+  async searchFiles(query: string, limit?: number): Promise<Result<SearchResult[]>> {
+    return this.searchContent(query, { limit });
+  }
+
+  async semanticSearch(query: string, limit?: number, threshold?: number): Promise<Result<Array<{ path: string; score: number; content: string }>>> {
+    try {
+      if (!this.config.graph?.enable_semantic_search) {
+        return {
+          success: false,
+          error: {
+            name: 'SemanticSearchDisabled',
+            message: 'Semantic search is not enabled for this backend',
+            code: 'SEMANTIC_SEARCH_DISABLED',
+            statusCode: 400,
+            isOperational: true
+          }
+        };
+      }
+
+      const vectorResult = await this.memory.vector.semanticSearch(query, limit || 10, threshold || 0.5);
+
+      if (!vectorResult.success) {
+        return {
+          success: false,
+          error: {
+            name: 'SemanticSearchError',
+            message: `Semantic search failed: ${vectorResult.error?.message || 'Unknown error'}`,
+            code: 'SEMANTIC_SEARCH_FAILED',
+            statusCode: 500,
+            isOperational: true
+          }
+        };
+      }
+
+      const results = (vectorResult.data || []).map(match => {
+        const node = match.node;
+        const content = node.type === NodeType.DOCUMENT ? (node as DocumentNode).content : 
+                       node.type === NodeType.MEMORY ? (node as MemoryNode).content : '';
+        
+        return {
+          path: node.metadata.path || node.id,
+          score: match.similarity,
+          content
+        };
+      });
+
+      return {
+        success: true,
+        data: results
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: {
+          name: 'SemanticSearchError',
+          message: `Semantic search failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          code: 'SEMANTIC_SEARCH_FAILED',
           statusCode: 500,
           isOperational: true
         }
