@@ -3,11 +3,11 @@
  * Uses tree-sitter to parse TypeScript and JavaScript code
  */
 
-import Parser from 'tree-sitter';
-import TypeScript from 'tree-sitter-typescript';
-import JavaScript from 'tree-sitter-javascript';
-import { Result } from '../../types/index.js';
-import { toKBError } from '../../types/error-utils.js';
+import Parser from "tree-sitter";
+import TypeScript from "tree-sitter-typescript";
+import JavaScript from "tree-sitter-javascript";
+import { Result } from "../../types/index.js";
+import { toKBError } from "../../types/error-utils.js";
 
 export interface ParsedAST {
   tree: Parser.Tree;
@@ -49,16 +49,16 @@ export class TypeScriptParser {
 
       // Set TypeScript language
       this.tsParser.setLanguage(TypeScript.typescript);
-      
+
       // Set JavaScript language
       this.jsParser.setLanguage(JavaScript);
-      
+
       this.initialized = true;
       return { success: true, data: undefined };
     } catch (error) {
       return {
         success: false,
-        error: toKBError(error, { operation: 'initialize' })
+        error: toKBError(error, { operation: "initialize" }),
       };
     }
   }
@@ -72,14 +72,16 @@ export class TypeScriptParser {
 
       const isTypeScript = this.isTypeScriptFile(filePath);
       const parser = isTypeScript ? this.tsParser : this.jsParser;
-      const language = isTypeScript ? 'typescript' : 'javascript';
+      const language = isTypeScript ? "typescript" : "javascript";
 
       const tree = parser.parse(content);
-      
+
       if (!tree.rootNode) {
         return {
           success: false,
-          error: toKBError(new Error('Failed to parse code - no root node'), { operation: 'parse' })
+          error: toKBError(new Error("Failed to parse code - no root node"), {
+            operation: "parse",
+          }),
         };
       }
 
@@ -97,13 +99,13 @@ export class TypeScriptParser {
           language,
           filePath,
           content,
-          rootNode: tree.rootNode
-        }
+          rootNode: tree.rootNode,
+        },
       };
     } catch (error) {
       return {
         success: false,
-        error: toKBError(error, { operation: 'parse' })
+        error: toKBError(error, { operation: "parse" }),
       };
     }
   }
@@ -111,9 +113,12 @@ export class TypeScriptParser {
   /**
    * Find all nodes of a specific type
    */
-  findNodesByType(node: Parser.SyntaxNode, nodeType: string): Parser.SyntaxNode[] {
+  findNodesByType(
+    node: Parser.SyntaxNode,
+    nodeType: string,
+  ): Parser.SyntaxNode[] {
     const results: Parser.SyntaxNode[] = [];
-    
+
     if (node.type === nodeType) {
       results.push(node);
     }
@@ -130,11 +135,11 @@ export class TypeScriptParser {
    */
   findFunctions(rootNode: Parser.SyntaxNode): Parser.SyntaxNode[] {
     const functionTypes = [
-      'function_declaration',
-      'method_definition',
-      'arrow_function',
-      'function_expression',
-      'generator_function_declaration'
+      "function_declaration",
+      "method_definition",
+      "arrow_function",
+      "function_expression",
+      "generator_function_declaration",
     ];
 
     const functions: Parser.SyntaxNode[] = [];
@@ -149,31 +154,28 @@ export class TypeScriptParser {
    * Find class declarations
    */
   findClasses(rootNode: Parser.SyntaxNode): Parser.SyntaxNode[] {
-    return this.findNodesByType(rootNode, 'class_declaration');
+    return this.findNodesByType(rootNode, "class_declaration");
   }
 
   /**
    * Find interface declarations
    */
   findInterfaces(rootNode: Parser.SyntaxNode): Parser.SyntaxNode[] {
-    return this.findNodesByType(rootNode, 'interface_declaration');
+    return this.findNodesByType(rootNode, "interface_declaration");
   }
 
   /**
    * Find type declarations
    */
   findTypes(rootNode: Parser.SyntaxNode): Parser.SyntaxNode[] {
-    return this.findNodesByType(rootNode, 'type_alias_declaration');
+    return this.findNodesByType(rootNode, "type_alias_declaration");
   }
 
   /**
    * Find variable declarations
    */
   findVariables(rootNode: Parser.SyntaxNode): Parser.SyntaxNode[] {
-    const variableTypes = [
-      'variable_declaration',
-      'lexical_declaration'
-    ];
+    const variableTypes = ["variable_declaration", "lexical_declaration"];
 
     const variables: Parser.SyntaxNode[] = [];
     for (const type of variableTypes) {
@@ -187,17 +189,14 @@ export class TypeScriptParser {
    * Find import statements
    */
   findImports(rootNode: Parser.SyntaxNode): Parser.SyntaxNode[] {
-    return this.findNodesByType(rootNode, 'import_statement');
+    return this.findNodesByType(rootNode, "import_statement");
   }
 
   /**
    * Find export statements
    */
   findExports(rootNode: Parser.SyntaxNode): Parser.SyntaxNode[] {
-    const exportTypes = [
-      'export_statement',
-      'export_declaration'
-    ];
+    const exportTypes = ["export_statement", "export_declaration"];
 
     const exports: Parser.SyntaxNode[] = [];
     for (const type of exportTypes) {
@@ -212,9 +211,11 @@ export class TypeScriptParser {
    */
   getFunctionName(node: Parser.SyntaxNode): string | null {
     // Try to find identifier in various positions
-    const identifierNode = node.namedChildren.find(child => 
-      child.type === 'identifier' || 
-      (child.type === 'property_identifier' && child.parent?.type === 'method_definition')
+    const identifierNode = node.namedChildren.find(
+      (child) =>
+        child.type === "identifier" ||
+        (child.type === "property_identifier" &&
+          child.parent?.type === "method_definition"),
     );
 
     if (identifierNode) {
@@ -222,9 +223,9 @@ export class TypeScriptParser {
     }
 
     // For arrow functions assigned to variables
-    if (node.parent?.type === 'variable_declarator') {
+    if (node.parent?.type === "variable_declarator") {
       const nameNode = node.parent.namedChildren[0];
-      if (nameNode?.type === 'identifier') {
+      if (nameNode?.type === "identifier") {
         return nameNode.text;
       }
     }
@@ -238,11 +239,11 @@ export class TypeScriptParser {
   getFunctionSignature(node: Parser.SyntaxNode, content: string): string {
     const start = node.startIndex;
     const end = node.endIndex;
-    
+
     // Find the opening brace to get just the signature
     let signatureEnd = end;
     for (let i = start; i < end; i++) {
-      if (content[i] === '{' || content[i] === '=>') {
+      if (content[i] === "{" || content[i] === "=>") {
         signatureEnd = i;
         break;
       }
@@ -255,7 +256,9 @@ export class TypeScriptParser {
    * Get class name from class node
    */
   getClassName(node: Parser.SyntaxNode): string | null {
-    const identifierNode = node.namedChildren.find(child => child.type === 'identifier');
+    const identifierNode = node.namedChildren.find(
+      (child) => child.type === "identifier",
+    );
     return identifierNode ? identifierNode.text : null;
   }
 
@@ -263,7 +266,9 @@ export class TypeScriptParser {
    * Get interface name from interface node
    */
   getInterfaceName(node: Parser.SyntaxNode): string | null {
-    const identifierNode = node.namedChildren.find(child => child.type === 'type_identifier');
+    const identifierNode = node.namedChildren.find(
+      (child) => child.type === "type_identifier",
+    );
     return identifierNode ? identifierNode.text : null;
   }
 
@@ -272,17 +277,20 @@ export class TypeScriptParser {
    */
   getVariableNames(node: Parser.SyntaxNode): string[] {
     const names: string[] = [];
-    
+
     // Handle different variable declaration patterns
-    const declarators = this.findNodesByType(node, 'variable_declarator');
-    
+    const declarators = this.findNodesByType(node, "variable_declarator");
+
     for (const declarator of declarators) {
       const identifier = declarator.namedChildren[0];
-      if (identifier?.type === 'identifier') {
+      if (identifier?.type === "identifier") {
         names.push(identifier.text);
       }
       // Handle destructuring
-      else if (identifier?.type === 'object_pattern' || identifier?.type === 'array_pattern') {
+      else if (
+        identifier?.type === "object_pattern" ||
+        identifier?.type === "array_pattern"
+      ) {
         names.push(...this.extractDestructuredNames(identifier));
       }
     }
@@ -295,13 +303,16 @@ export class TypeScriptParser {
    */
   private extractDestructuredNames(node: Parser.SyntaxNode): string[] {
     const names: string[] = [];
-    
+
     for (const child of node.namedChildren) {
-      if (child.type === 'identifier') {
+      if (child.type === "identifier") {
         names.push(child.text);
-      } else if (child.type === 'shorthand_property_identifier_pattern') {
+      } else if (child.type === "shorthand_property_identifier_pattern") {
         names.push(child.text);
-      } else if (child.type === 'object_pattern' || child.type === 'array_pattern') {
+      } else if (
+        child.type === "object_pattern" ||
+        child.type === "array_pattern"
+      ) {
         names.push(...this.extractDestructuredNames(child));
       }
     }
@@ -324,24 +335,31 @@ export class TypeScriptParser {
     let namespaceImport: string | undefined;
 
     // Find import clause
-    const importClause = node.namedChildren.find(child => child.type === 'import_clause');
-    
+    const importClause = node.namedChildren.find(
+      (child) => child.type === "import_clause",
+    );
+
     if (importClause) {
       for (const child of importClause.namedChildren) {
         switch (child.type) {
-          case 'identifier':
+          case "identifier":
             defaultImport = child.text;
             break;
-          case 'namespace_import':
-            const nsIdentifier = child.namedChildren.find(c => c.type === 'identifier');
+          case "namespace_import": {
+            const nsIdentifier = child.namedChildren.find(
+              (c) => c.type === "identifier",
+            );
             if (nsIdentifier) {
               namespaceImport = nsIdentifier.text;
             }
             break;
-          case 'named_imports':
+          }
+          case "named_imports":
             for (const spec of child.namedChildren) {
-              if (spec.type === 'import_specifier') {
-                const identifier = spec.namedChildren.find(c => c.type === 'identifier');
+              if (spec.type === "import_specifier") {
+                const identifier = spec.namedChildren.find(
+                  (c) => c.type === "identifier",
+                );
                 if (identifier) {
                   specifiers.push(identifier.text);
                 }
@@ -356,7 +374,7 @@ export class TypeScriptParser {
       source,
       specifiers,
       defaultImport,
-      namespaceImport
+      namespaceImport,
     };
   }
 
@@ -364,12 +382,14 @@ export class TypeScriptParser {
    * Get import source path
    */
   private getImportSource(node: Parser.SyntaxNode): string {
-    const stringNode = node.namedChildren.find(child => child.type === 'string');
+    const stringNode = node.namedChildren.find(
+      (child) => child.type === "string",
+    );
     if (stringNode) {
       // Remove quotes
       return stringNode.text.slice(1, -1);
     }
-    return '';
+    return "";
   }
 
   /**
@@ -379,17 +399,17 @@ export class TypeScriptParser {
     let complexity = 1; // Base complexity
 
     const complexityNodes = [
-      'if_statement',
-      'while_statement',
-      'for_statement',
-      'for_in_statement',
-      'for_of_statement',
-      'do_statement',
-      'switch_statement',
-      'case_clause',
-      'catch_clause',
-      'conditional_expression',
-      'logical_expression'
+      "if_statement",
+      "while_statement",
+      "for_statement",
+      "for_in_statement",
+      "for_of_statement",
+      "do_statement",
+      "switch_statement",
+      "case_clause",
+      "catch_clause",
+      "conditional_expression",
+      "logical_expression",
     ];
 
     for (const nodeType of complexityNodes) {
@@ -410,7 +430,7 @@ export class TypeScriptParser {
    * Find function calls within a node
    */
   findFunctionCalls(node: Parser.SyntaxNode): Parser.SyntaxNode[] {
-    return this.findNodesByType(node, 'call_expression');
+    return this.findNodesByType(node, "call_expression");
   }
 
   /**
@@ -418,14 +438,14 @@ export class TypeScriptParser {
    */
   getCalledFunctionName(callNode: Parser.SyntaxNode): string | null {
     const functionNode = callNode.namedChildren[0];
-    
-    if (functionNode?.type === 'identifier') {
+
+    if (functionNode?.type === "identifier") {
       return functionNode.text;
     }
-    
-    if (functionNode?.type === 'member_expression') {
+
+    if (functionNode?.type === "member_expression") {
       const property = functionNode.namedChildren[1];
-      if (property?.type === 'property_identifier') {
+      if (property?.type === "property_identifier") {
         return property.text;
       }
     }
@@ -442,15 +462,19 @@ export class TypeScriptParser {
       text: node.text,
       startPosition: {
         row: node.startPosition.row,
-        column: node.startPosition.column
+        column: node.startPosition.column,
       },
       endPosition: {
         row: node.endPosition.row,
-        column: node.endPosition.column
+        column: node.endPosition.column,
       },
-      children: node.children.map(child => this.nodeToObject(child)),
-      namedChildren: node.namedChildren.map(child => this.nodeToObject(child)),
-      fieldName: node.parent ? node.parent.fieldNameForChild(node.id) || undefined : undefined
+      children: node.children.map((child) => this.nodeToObject(child)),
+      namedChildren: node.namedChildren.map((child) =>
+        this.nodeToObject(child),
+      ),
+      fieldName: node.parent
+        ? node.parent.fieldNameForChild(node.id) || undefined
+        : undefined,
     };
   }
 
@@ -458,20 +482,22 @@ export class TypeScriptParser {
    * Check if file is TypeScript
    */
   private isTypeScriptFile(filePath: string): boolean {
-    return filePath.endsWith('.ts') || filePath.endsWith('.tsx');
+    return filePath.endsWith(".ts") || filePath.endsWith(".tsx");
   }
 
   /**
    * Find syntax errors in the AST
    */
-  private findSyntaxErrors(node: Parser.SyntaxNode): Array<{ line: number; column: number; message: string }> {
+  private findSyntaxErrors(
+    node: Parser.SyntaxNode,
+  ): Array<{ line: number; column: number; message: string }> {
     const errors: Array<{ line: number; column: number; message: string }> = [];
 
-    if (node.type === 'ERROR') {
+    if (node.type === "ERROR") {
       errors.push({
         line: node.startPosition.row + 1,
         column: node.startPosition.column + 1,
-        message: `Syntax error: ${node.text}`
+        message: `Syntax error: ${node.text}`,
       });
     }
 
@@ -479,7 +505,7 @@ export class TypeScriptParser {
       errors.push({
         line: node.startPosition.row + 1,
         column: node.startPosition.column + 1,
-        message: `Missing node: ${node.type}`
+        message: `Missing node: ${node.type}`,
       });
     }
 
@@ -495,32 +521,32 @@ export class TypeScriptParser {
    */
   getDocumentation(node: Parser.SyntaxNode, content: string): string | null {
     // Look for JSDoc comment before the node
-    const lines = content.split('\n');
+    const lines = content.split("\n");
     const nodeStartLine = node.startPosition.row;
-    
-    let docLines: string[] = [];
+
+    const docLines: string[] = [];
     let currentLine = nodeStartLine - 1;
-    
+
     // Scan backwards for documentation
     while (currentLine >= 0) {
       const line = lines[currentLine].trim();
-      
-      if (line.endsWith('*/')) {
+
+      if (line.endsWith("*/")) {
         // Found end of JSDoc comment
         docLines.unshift(line);
         currentLine--;
-        
+
         // Continue until we find the start
         while (currentLine >= 0) {
           const docLine = lines[currentLine].trim();
           docLines.unshift(docLine);
-          if (docLine.startsWith('/**')) {
+          if (docLine.startsWith("/**")) {
             break;
           }
           currentLine--;
         }
         break;
-      } else if (line === '' || line.startsWith('//')) {
+      } else if (line === "" || line.startsWith("//")) {
         // Skip empty lines and single-line comments
         currentLine--;
         continue;
@@ -529,11 +555,11 @@ export class TypeScriptParser {
         break;
       }
     }
-    
-    if (docLines.length > 0 && docLines[0].startsWith('/**')) {
-      return docLines.join('\n');
+
+    if (docLines.length > 0 && docLines[0].startsWith("/**")) {
+      return docLines.join("\n");
     }
-    
+
     return null;
   }
 }

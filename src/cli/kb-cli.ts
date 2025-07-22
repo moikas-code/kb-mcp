@@ -5,20 +5,20 @@
  * Unified CLI for code intelligence and knowledge management
  */
 
-import { Command } from 'commander';
-import chalk from 'chalk';
-import { createAnalyzeCommand } from './commands/analyze.js';
-import { createBenchmarkCommand } from './commands/benchmark.js';
-import { createOptimizeCommand } from './commands/optimize.js';
-import { promises as fs } from 'fs';
-import path from 'path';
+import { Command } from "commander";
+import chalk from "chalk";
+import { createAnalyzeCommand } from "./commands/analyze.js";
+import { createBenchmarkCommand } from "./commands/benchmark.js";
+import { createOptimizeCommand } from "./commands/optimize.js";
+import { promises as fs } from "fs";
+import path from "path";
 
 // ASCII Art Banner
 const banner = `
-${chalk.blue('╔═══════════════════════════════════════════════════════╗')}
-${chalk.blue('║')}  ${chalk.cyan.bold('KB-MCP')} ${chalk.gray('v2.2.0')} - ${chalk.yellow('Code Intelligence Platform')}     ${chalk.blue('║')}
-${chalk.blue('║')}  ${chalk.gray('Enterprise-grade knowledge management for code')}    ${chalk.blue('║')}
-${chalk.blue('╚═══════════════════════════════════════════════════════╝')}
+${chalk.blue("╔═══════════════════════════════════════════════════════╗")}
+${chalk.blue("║")}  ${chalk.cyan.bold("KB-MCP")} ${chalk.gray("v2.2.0")} - ${chalk.yellow("Code Intelligence Platform")}     ${chalk.blue("║")}
+${chalk.blue("║")}  ${chalk.gray("Enterprise-grade knowledge management for code")}    ${chalk.blue("║")}
+${chalk.blue("╚═══════════════════════════════════════════════════════╝")}
 `;
 
 async function main() {
@@ -28,12 +28,14 @@ async function main() {
   console.log(banner);
 
   program
-    .name('kb')
-    .description('KB-MCP Code Intelligence CLI - Analyze, optimize, and understand your codebase')
-    .version('2.2.0')
-    .option('-v, --verbose', 'Enable verbose output')
-    .option('--no-color', 'Disable colored output')
-    .option('-c, --config <file>', 'Use custom configuration file');
+    .name("kb")
+    .description(
+      "KB-MCP Code Intelligence CLI - Analyze, optimize, and understand your codebase",
+    )
+    .version("2.2.0")
+    .option("-v, --verbose", "Enable verbose output")
+    .option("--no-color", "Disable colored output")
+    .option("-c, --config <file>", "Use custom configuration file");
 
   // Add analyze command
   program.addCommand(createAnalyzeCommand());
@@ -46,10 +48,14 @@ async function main() {
 
   // Init command - Initialize KB-MCP in a project
   program
-    .command('init')
-    .description('Initialize KB-MCP in your project')
-    .option('-t, --template <type>', 'Configuration template (basic|enterprise)', 'basic')
-    .option('-f, --force', 'Overwrite existing configuration')
+    .command("init")
+    .description("Initialize KB-MCP in your project")
+    .option(
+      "-t, --template <type>",
+      "Configuration template (basic|enterprise)",
+      "basic",
+    )
+    .option("-f, --force", "Overwrite existing configuration")
     .action(async (options) => {
       try {
         await initializeProject(options);
@@ -61,8 +67,8 @@ async function main() {
 
   // Status command - Show KB-MCP status
   program
-    .command('status')
-    .description('Show KB-MCP configuration and status')
+    .command("status")
+    .description("Show KB-MCP configuration and status")
     .action(async () => {
       try {
         await showStatus();
@@ -74,10 +80,14 @@ async function main() {
 
   // MCP command - Start MCP server
   program
-    .command('mcp')
-    .description('Start KB-MCP as Model Context Protocol server')
-    .option('-t, --transport <type>', 'Transport type (stdio|websocket|http)', 'stdio')
-    .option('-p, --port <port>', 'Port for websocket/http transport', '3000')
+    .command("mcp")
+    .description("Start KB-MCP as Model Context Protocol server")
+    .option(
+      "-t, --transport <type>",
+      "Transport type (stdio|websocket|http)",
+      "stdio",
+    )
+    .option("-p, --port <port>", "Port for websocket/http transport", "3000")
     .action(async (options) => {
       try {
         await startMCPServer(options);
@@ -89,10 +99,10 @@ async function main() {
 
   // MOIDVK integration command
   program
-    .command('moidvk <action>')
-    .description('MOIDVK integration commands')
-    .option('--tool <name>', 'Specific MOIDVK tool to use')
-    .option('--hybrid', 'Use hybrid KB-MCP + MOIDVK analysis')
+    .command("moidvk <action>")
+    .description("MOIDVK integration commands")
+    .option("--tool <name>", "Specific MOIDVK tool to use")
+    .option("--hybrid", "Use hybrid KB-MCP + MOIDVK analysis")
     .action(async (action, options) => {
       try {
         await handleMoidvkIntegration(action, options);
@@ -115,15 +125,19 @@ async function main() {
  * Initialize KB-MCP in a project
  */
 async function initializeProject(options: any): Promise<void> {
-  console.log(chalk.blue('🚀 Initializing KB-MCP...\n'));
+  console.log(chalk.blue("🚀 Initializing KB-MCP...\n"));
 
-  const configPath = path.join(process.cwd(), '.kbconfig.yaml');
-  
+  const configPath = path.join(process.cwd(), ".kbconfig.yaml");
+
   // Check if config already exists
   try {
     await fs.access(configPath);
     if (!options.force) {
-      console.log(chalk.yellow('⚠️  Configuration already exists. Use --force to overwrite.'));
+      console.log(
+        chalk.yellow(
+          "⚠️  Configuration already exists. Use --force to overwrite.",
+        ),
+      );
       return;
     }
   } catch {
@@ -132,13 +146,13 @@ async function initializeProject(options: any): Promise<void> {
 
   // Load template
   const template = await loadConfigTemplate(options.template);
-  
+
   // Write configuration
-  await fs.writeFile(configPath, template, 'utf-8');
-  console.log(chalk.green('✅ Created .kbconfig.yaml'));
+  await fs.writeFile(configPath, template, "utf-8");
+  console.log(chalk.green("✅ Created .kbconfig.yaml"));
 
   // Create necessary directories
-  const dirs = ['kb', 'kb/active', 'kb/archive', '.cache/kb-mcp'];
+  const dirs = ["kb", "kb/active", "kb/archive", ".cache/kb-mcp"];
   for (const dir of dirs) {
     await fs.mkdir(path.join(process.cwd(), dir), { recursive: true });
     console.log(chalk.green(`✅ Created ${dir}/`));
@@ -147,29 +161,40 @@ async function initializeProject(options: any): Promise<void> {
   // Create initial KB files
   await createInitialKBFiles();
 
-  console.log(chalk.green('\n✨ KB-MCP initialized successfully!'));
-  console.log(chalk.gray('\nNext steps:'));
-  console.log(chalk.gray('  1. Run "kb analyze project" to analyze your codebase'));
+  console.log(chalk.green("\n✨ KB-MCP initialized successfully!"));
+  console.log(chalk.gray("\nNext steps:"));
+  console.log(
+    chalk.gray('  1. Run "kb analyze project" to analyze your codebase'),
+  );
   console.log(chalk.gray('  2. Run "kb mcp" to start the MCP server'));
-  console.log(chalk.gray('  3. Configure your MCP client to connect to KB-MCP'));
+  console.log(
+    chalk.gray("  3. Configure your MCP client to connect to KB-MCP"),
+  );
 }
 
 /**
  * Show KB-MCP status
  */
 async function showStatus(): Promise<void> {
-  console.log(chalk.blue('📊 KB-MCP Status\n'));
+  console.log(chalk.blue("📊 KB-MCP Status\n"));
 
   // Check configuration
   try {
-    const configPath = path.join(process.cwd(), '.kbconfig.yaml');
+    const configPath = path.join(process.cwd(), ".kbconfig.yaml");
     await fs.access(configPath);
-    console.log(chalk.green('✅ Configuration found'));
-    
+    console.log(chalk.green("✅ Configuration found"));
+
     // Load and display config
-    const config = await fs.readFile(configPath, 'utf-8');
-    console.log(chalk.gray('\nConfiguration:'));
-    console.log(chalk.gray(config.split('\n').map(line => '  ' + line).join('\n')));
+    const config = await fs.readFile(configPath, "utf-8");
+    console.log(chalk.gray("\nConfiguration:"));
+    console.log(
+      chalk.gray(
+        config
+          .split("\n")
+          .map((line) => "  " + line)
+          .join("\n"),
+      ),
+    );
   } catch {
     console.log(chalk.red('❌ No configuration found (run "kb init" first)'));
     return;
@@ -177,29 +202,37 @@ async function showStatus(): Promise<void> {
 
   // Check KB directory
   try {
-    const kbPath = path.join(process.cwd(), 'kb');
+    const kbPath = path.join(process.cwd(), "kb");
     const files = await fs.readdir(kbPath, { recursive: true });
-    const mdFiles = files.filter(f => f.toString().endsWith('.md'));
-    console.log(chalk.green(`\n✅ Knowledge base: ${mdFiles.length} documents`));
+    const mdFiles = files.filter((f) => f.toString().endsWith(".md"));
+    console.log(
+      chalk.green(`\n✅ Knowledge base: ${mdFiles.length} documents`),
+    );
   } catch {
-    console.log(chalk.yellow('⚠️  Knowledge base directory not found'));
+    console.log(chalk.yellow("⚠️  Knowledge base directory not found"));
   }
 
   // Check cache
   try {
-    const cachePath = path.join(process.cwd(), '.cache/kb-mcp');
+    const cachePath = path.join(process.cwd(), ".cache/kb-mcp");
     const stats = await fs.stat(cachePath);
-    console.log(chalk.green('✅ Cache directory exists'));
+    console.log(chalk.green("✅ Cache directory exists"));
   } catch {
-    console.log(chalk.gray('ℹ️  Cache directory not found (will be created on first use)'));
+    console.log(
+      chalk.gray(
+        "ℹ️  Cache directory not found (will be created on first use)",
+      ),
+    );
   }
 
   // Check for MOIDVK
   const moidvkPath = await findMoidvkInstallation();
   if (moidvkPath) {
-    console.log(chalk.green(`✅ MOIDVK integration available at ${moidvkPath}`));
+    console.log(
+      chalk.green(`✅ MOIDVK integration available at ${moidvkPath}`),
+    );
   } else {
-    console.log(chalk.gray('ℹ️  MOIDVK not found (optional integration)'));
+    console.log(chalk.gray("ℹ️  MOIDVK not found (optional integration)"));
   }
 }
 
@@ -207,17 +240,18 @@ async function showStatus(): Promise<void> {
  * Start MCP server
  */
 async function startMCPServer(options: any): Promise<void> {
-  console.log(chalk.blue(`🚀 Starting KB-MCP server (${options.transport})...\n`));
+  console.log(
+    chalk.blue(`🚀 Starting KB-MCP server (${options.transport})...\n`),
+  );
 
   try {
     // Dynamic import of MCP server
-    const { startServer } = await import('../mcp/server.js');
-    
+    const { startServer } = await import("../mcp/server.js");
+
     await startServer({
       transport: options.transport,
-      port: parseInt(options.port)
+      port: parseInt(options.port),
     });
-
   } catch (error: any) {
     console.error(chalk.red(`Failed to start MCP server: ${error.message}`));
     process.exit(1);
@@ -227,65 +261,79 @@ async function startMCPServer(options: any): Promise<void> {
 /**
  * Handle MOIDVK integration
  */
-async function handleMoidvkIntegration(action: string, options: any): Promise<void> {
+async function handleMoidvkIntegration(
+  action: string,
+  options: any,
+): Promise<void> {
   const moidvkPath = await findMoidvkInstallation();
-  
+
   if (!moidvkPath) {
-    console.log(chalk.red('❌ MOIDVK not found. Please ensure MOIDVK is installed.'));
-    console.log(chalk.gray('   Expected location: ../moidvk or node_modules/moidvk'));
+    console.log(
+      chalk.red("❌ MOIDVK not found. Please ensure MOIDVK is installed."),
+    );
+    console.log(
+      chalk.gray("   Expected location: ../moidvk or node_modules/moidvk"),
+    );
     return;
   }
 
   console.log(chalk.blue(`🔗 MOIDVK Integration: ${action}\n`));
 
   switch (action) {
-    case 'status':
+    case "status":
       console.log(chalk.green(`✅ MOIDVK found at: ${moidvkPath}`));
-      console.log(chalk.gray('   Integration ready for hybrid analysis'));
+      console.log(chalk.gray("   Integration ready for hybrid analysis"));
       break;
 
-    case 'test':
-      console.log(chalk.yellow('Testing MOIDVK integration...'));
+    case "test": {
+      console.log(chalk.yellow("Testing MOIDVK integration..."));
       // Test basic tool execution
-      const { MoidvkAdapter } = await import('../integrations/moidvk-adapter.js');
-      const { UnifiedMemory } = await import('../graph/unified-memory.js');
-      
+      const { MoidvkAdapter } = await import(
+        "../integrations/moidvk-adapter.js"
+      );
+      const { UnifiedMemory } = await import("../graph/unified-memory.js");
+
       const memory = new UnifiedMemory();
       await memory.initialize();
-      
+
       const adapter = new MoidvkAdapter(
-        { serverPath: path.join(moidvkPath, 'server.js') },
-        memory
+        { serverPath: path.join(moidvkPath, "server.js") },
+        memory,
       );
 
       const result = await adapter.executeTool({
-        tool: options.tool || 'check_code_practices',
-        params: { code: 'const x = 1;' }
+        tool: options.tool || "check_code_practices",
+        params: { code: "const x = 1;" },
       });
 
       if (result.success) {
-        console.log(chalk.green('✅ MOIDVK integration test successful'));
-        console.log(chalk.gray(JSON.stringify(result.data, null, 2)));
+        console.log(chalk.green("✅ MOIDVK integration test passed"));
+        console.log(chalk.gray("   Tool execution successful"));
       } else {
-        console.log(chalk.red(`❌ Test failed: ${result.error}`));
+        console.log(chalk.red("❌ MOIDVK integration test failed"));
       }
-      
-      await memory.close();
       break;
+    }
 
-    case 'recommend':
-      console.log(chalk.yellow('Getting tool recommendations...'));
+    case "recommend":
+      console.log(chalk.yellow("Getting tool recommendations..."));
       // Implement recommendation logic
-      console.log(chalk.gray('Recommendations based on your project:'));
-      console.log(chalk.gray('  • Use "kb analyze project --moidvk" for hybrid analysis'));
-      console.log(chalk.gray('  • Use "check_code_practices" for JavaScript/TypeScript'));
+      console.log(chalk.gray("Recommendations based on your project:"));
+      console.log(
+        chalk.gray('  • Use "kb analyze project --moidvk" for hybrid analysis'),
+      );
+      console.log(
+        chalk.gray('  • Use "check_code_practices" for JavaScript/TypeScript'),
+      );
       console.log(chalk.gray('  • Use "rust_safety_checker" for Rust code'));
-      console.log(chalk.gray('  • Use "python_security_scanner" for Python projects'));
+      console.log(
+        chalk.gray('  • Use "python_security_scanner" for Python projects'),
+      );
       break;
 
     default:
       console.log(chalk.red(`Unknown action: ${action}`));
-      console.log(chalk.gray('Available actions: status, test, recommend'));
+      console.log(chalk.gray("Available actions: status, test, recommend"));
   }
 }
 
@@ -395,14 +443,14 @@ logging:
     enabled: true
     max_files: 10
     max_size: 100MB
-`
+`,
   };
 
   return templates[template] || templates.basic;
 }
 
 async function createInitialKBFiles(): Promise<void> {
-  const readmePath = path.join(process.cwd(), 'kb/README.md');
+  const readmePath = path.join(process.cwd(), "kb/README.md");
   const readmeContent = `# Knowledge Base
 
 This directory contains the KB-MCP knowledge base for your project.
@@ -436,21 +484,21 @@ kb mcp
 \`\`\`
 `;
 
-  await fs.writeFile(readmePath, readmeContent, 'utf-8');
-  console.log(chalk.green('✅ Created kb/README.md'));
+  await fs.writeFile(readmePath, readmeContent, "utf-8");
+  console.log(chalk.green("✅ Created kb/README.md"));
 }
 
 async function findMoidvkInstallation(): Promise<string | null> {
   const possiblePaths = [
-    path.join(process.cwd(), '../moidvk'),
-    path.join(process.cwd(), 'node_modules/moidvk'),
-    '/home/moika/Documents/code/moidvk',
-    path.join(process.env.HOME || '', 'moidvk')
+    path.join(process.cwd(), "../moidvk"),
+    path.join(process.cwd(), "node_modules/moidvk"),
+    "/home/moika/Documents/code/moidvk",
+    path.join(process.env.HOME || "", "moidvk"),
   ];
 
   for (const moidvkPath of possiblePaths) {
     try {
-      const serverPath = path.join(moidvkPath, 'server.js');
+      const serverPath = path.join(moidvkPath, "server.js");
       await fs.access(serverPath);
       return moidvkPath;
     } catch {
@@ -462,18 +510,18 @@ async function findMoidvkInstallation(): Promise<string | null> {
 }
 
 // Handle uncaught errors
-process.on('uncaughtException', (error) => {
-  console.error(chalk.red('\n💥 Unexpected error:'), error.message);
+process.on("uncaughtException", (error) => {
+  console.error(chalk.red("\n💥 Unexpected error:"), error.message);
   process.exit(1);
 });
 
-process.on('unhandledRejection', (reason, promise) => {
-  console.error(chalk.red('\n💥 Unhandled promise rejection:'), reason);
+process.on("unhandledRejection", (reason, promise) => {
+  console.error(chalk.red("\n💥 Unhandled promise rejection:"), reason);
   process.exit(1);
 });
 
 // Run the CLI
 main().catch((error) => {
-  console.error(chalk.red('Fatal error:'), error);
+  console.error(chalk.red("Fatal error:"), error);
   process.exit(1);
 });

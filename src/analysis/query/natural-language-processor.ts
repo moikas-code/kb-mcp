@@ -236,7 +236,7 @@ export class NaturalLanguageProcessor {
 
     // Build Cypher query based on intent
     let cypher = '';
-    let params: Record<string, any> = {};
+    const params: Record<string, any> = {};
 
     switch (intent.target) {
       case 'function':

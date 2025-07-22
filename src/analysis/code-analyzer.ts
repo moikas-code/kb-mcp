@@ -162,15 +162,15 @@ export class CodeAnalyzer {
     try {
       const files = await this.findSourceFiles(projectPath, options);
       
-      let allEntities: CodeEntity[] = [];
-      let allRelationships: CodeRelationship[] = [];
-      let totalMetrics = {
+      const allEntities: CodeEntity[] = [];
+      const allRelationships: CodeRelationship[] = [];
+      const totalMetrics = {
         totalLines: 0,
         functions: 0,
         classes: 0,
         complexity: 0
       };
-      let allInsights: string[] = [];
+      const allInsights: string[] = [];
 
       // Analyze each file
       for (const file of files) {

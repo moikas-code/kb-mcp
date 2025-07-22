@@ -290,7 +290,7 @@ describe("Audit Logging Compliance", () => {
 
       // Tamper with the log file
       const logFile = path.join(testDir, "audit.log");
-      let content = await fs.readFile(logFile, "utf8");
+      const content = await fs.readFile(logFile, "utf8");
       const event = JSON.parse(content.trim());
 
       // Modify event data
